@@ -1,0 +1,744 @@
+.reports-container {
+    background-color: var(--second-background);
+    padding: 1rem 2rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-top: 1rem;
+    max-height: calc(100vh - 6rem);
+}
+
+.reports-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.reports-header h2 {
+    color: var(--primary-text);
+    font-size: 1.3rem;
+    margin: 0;
+}
+
+.reports-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 1rem;
+    overflow-y: auto;
+    padding: 0;
+    max-height: calc(100vh - 16rem);
+}
+
+.complaint-card {
+    background: var(--primary-background);
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+}
+
+.complaint-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.complaint-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--primary-text);
+    flex-grow: 1;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.complaint-server {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    background: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+    font-weight: 500;
+}
+
+.complaint-status {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.complaint-details {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 12px;
+    font-size: 0.875rem;
+    margin: 8px 0;
+}
+
+.complaint-details strong {
+    color: var(--second-text);
+    font-weight: 500;
+}
+
+.complaint-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.75rem;
+    color: var(--second-text);
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.complaint-date {
+    font-size: 0.85rem;
+    color: var(--second-text);
+}
+
+.complaint-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--accent-color);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: opacity 0.2s;
+}
+
+.complaint-link:hover {
+    opacity: 0.8;
+    text-decoration: none;
+}
+
+/* Status colors */
+.status-delayed {
+    background: var(--status-in-progress-bg);
+    color: var(--status-in-progress-text);
+    border: 1px solid var(--status-in-progress-border);
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 0;
+}
+
+.page-btn {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border-color);
+    background: var(--second-background);
+    color: var(--primary-text);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.page-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.page-btn:hover:not(.active) {
+    background: var(--primary-background);
+}
+
+.loading-row, .no-complaints {
+    text-align: center;
+    padding: 2rem;
+    color: var(--second-text);
+}
+
+span.complaint-id {
+    font-size: 14px;
+    color: var(--second-text);
+}
+
+.activity-chart-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.chart-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.chart-controls .filter-select {
+    flex: 1;
+    min-width: 120px;
+    max-width: 150px;
+}
+
+#refresh-chart-btn {
+    min-width: 120px;
+}
+
+/* Стили для кнопки фильтров */
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    position: relative;
+}
+
+.filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: var(--second-background);
+    border-color: var(--accent-color);
+}
+
+.filter-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Выпадающее меню фильтров */
+.filters-panel {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    background: var(--second-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    display: none;
+    width: 300px;
+    margin-top: 0.5rem;
+}
+
+.filters-panel.show {
+    display: block;
+}
+
+.filter-group {
+    margin-bottom: 1rem;
+}
+
+.filter-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--second-text);
+}
+
+.filter-select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: var(--primary-background);
+    color: var(--primary-text);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(224, 1, 91, 0.2);
+}
+
+.filter-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.filter-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+.apply-filters-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.apply-filters-btn:hover {
+    background: #c00050;
+}
+
+.appeal-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.secondary-btn {
+    background: var(--primary-background);
+    color: var(--primary-text);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.secondary-btn:hover {
+    background: var(--second-background);
+}
+
+.appeals-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.appeals-table th, 
+.appeals-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.appeals-table th {
+    background-color: var(--primary-background);
+    font-weight: 500;
+    color: var(--second-text);
+    position: sticky;
+    top: 0;
+}
+
+.appeals-table tr:hover {
+    background-color: rgba(224, 1, 91, 0.05);
+    cursor: pointer;
+}
+
+.appeals-table tr:active {
+    background-color: rgba(224, 1, 91, 0.1);
+}
+
+/* Стили для статусов обращений */
+.appeal-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.appeal-status.pending {
+    background: var(--status-pending-bg);
+    color: var(--status-pending-text);
+    border: 1px solid var(--status-pending-border);
+}
+
+.appeal-status.in_progress {
+    background: var(--status-in-progress-bg);
+    color: var(--status-in-progress-text);
+    border: 1px solid var(--status-in-progress-border);
+}
+
+.appeal-status.resolved {
+    background: var(--status-resolved-bg);
+    color: var(--status-resolved-text);
+    border: 1px solid var(--status-resolved-border);
+}
+
+.appeal-status.rejected {
+    background: var(--status-rejected-bg);
+    color: var(--status-rejected-text);
+    border: 1px solid var(--status-rejected-border);
+}
+
+/* Стили для кнопки просмотра */
+.view-appeal-btn {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 1rem;
+    transition: color 0.2s;
+    padding: 5px;
+}
+
+.view-appeal-btn:hover {
+    color: #c00050;
+}
+
+.view-appeal-btn:active {
+    transform: scale(0.95);
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.search-box input {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--primary-text);
+    min-width: 250px;
+    outline: none;
+}
+
+.search-btn {
+    padding: 0.5rem 1rem;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-btn:hover {
+    background: #c00050;
+}
+
+/* Стили для вкладок отчетности по пользователям */
+.user-reports-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+}
+
+#user-stats-tab.reports-list {
+    max-height: calc(100vh - 20rem);
+}
+
+.user-tab-btn {
+    background: none;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.95rem;
+    color: var(--second-text);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.user-tab-btn.active {
+    color: var(--primary-text);
+    font-weight: 500;
+}
+
+.user-tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-color);
+}
+
+.user-tab-content {
+    display: none;
+}
+
+.user-tab-content.active {
+    display: block;
+}
+
+/* Стили для таблицы статистики */
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.stats-table th, 
+.stats-table td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stats-table th {
+    background-color: var(--primary-background);
+    font-weight: 500;
+    color: var(--second-text);
+    position: sticky;
+    top: 0;
+}
+
+.stats-table tr:hover {
+    background-color: rgba(224, 1, 91, 0.05);
+}
+
+.stats-table .positive {
+    color: #00cc66;
+}
+
+.stats-table .negative {
+    color: #ff4757;
+}
+
+.stats-table .pending {
+    color: #ffa500;
+}
+
+/* Стили для графика активности */
+.activity-chart-container {
+    position: relative;
+    height: 400px;
+    margin-top: 1rem;
+}
+
+.chart-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+#chart-period-select {
+    background: var(--primary-background);
+    color: var(--primary-text);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+}
+
+/* Кнопки раскрытия карточек */
+.complaint-card .expand-btn {
+    background: none;
+    border: none;
+    color: var(--second-text);
+    cursor: pointer;
+    transition: all 0.2s;
+    padding: 5px;
+}
+
+.complaint-card .expand-btn:hover {
+    color: var(--accent-color);
+}
+
+.complaint-card .expand-btn i {
+    transition: transform 0.3s ease;
+}
+
+.complaint-card.expanded .expand-btn i {
+    transform: rotate(180deg);
+}
+
+.complaint-details-collapsible {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.complaint-card.expanded .complaint-details-collapsible {
+    max-height: 500px;
+}
+
+.edit-btn {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    cursor: pointer;
+    margin-left: 10px;
+    font-size: 12px;
+    transition: color 0.2s;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.edit-btn:hover {
+    background: rgba(224, 1, 91, 0.1);
+}
+
+.edit-btn:active {
+    transform: scale(0.95);
+}
+
+.edit-btn i {
+    font-size: 0.9rem;
+}
+
+.complaint-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.primary-btn {
+    background-color: var(--accent-color);
+    color: var(--second-text);
+    border: none;
+    padding: 0.5rem 3rem;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .complaint-card {
+        padding: 12px;
+    }
+    
+    .complaint-details {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    
+    .complaint-details strong {
+        display: block;
+        margin-top: 4px;
+    }
+    
+    .complaint-footer {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.complaint-card {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-content.chat-open {
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.exported-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    background: var(--primary-background);
+    color: var(--primary-text);
+}
+
+.exported-table th, 
+.exported-table td {
+    font-size: 14px;
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.exported-table th {
+    background-color: var(--second-background);
+    font-weight: 500;
+    color: var(--second-text);
+    position: sticky;
+    top: 0;
+}
+
+.exported-table tr:hover {
+    background-color: rgba(224, 1, 91, 0.05);
+}
+
+.exported-table .positive {
+    color: #00cc66;
+}
+
+.exported-table .negative {
+    color: #ff4757;
+}
+
+.exported-table .neutral {
+    color: #aaa;
+}
+
+.table-container {
+    max-height: calc(100vh - 20rem);
+    overflow-y: auto;
+    margin-bottom: 1rem;
+}
+
+.table-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 1rem;
+}
+
+.print-table-btn {
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.print-table-btn:hover {
+    background: #c00050;
+}

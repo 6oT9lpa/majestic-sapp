@@ -1,0 +1,450 @@
+.appeals-container {
+    background-color: var(--second-background);
+    padding: 1.5rem;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.appeals-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.appeals-header h2 {
+    color: var(--primary-text);
+    font-size: 1.3rem;
+    margin: 0;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.search-box input {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: transparent;
+    color: var(--primary-text);
+    min-width: 250px;
+    outline: none;
+}
+
+.search-btn {
+    padding: 0.5rem 1rem;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.search-btn:hover {
+    background: #c00050;
+}
+
+.appeals-list {
+    margin-top: 1rem;
+    max-height: calc(100vh - 16rem);
+    overflow-y: auto;
+}
+
+.loading-row, .no-appeals {
+    text-align: center;
+    padding: 2rem;
+    color: var(--second-text);
+}
+
+/* Стили для карточек обращений */
+.appeal-card {
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+}
+
+.appeal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.appeal-id {
+    color: var(--second-text);
+    font-size: 0.85rem;
+}
+
+.appeal-type {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    background: rgba(224, 1, 91, 0.1);
+    color: var(--accent-color);
+    font-weight: 500;
+}
+
+.appeal-user {
+    margin: 0.5rem 0;
+    font-size: 0.95rem;
+}
+
+.appeal-user strong {
+    color: var(--second-text);
+    font-weight: 500;
+}
+
+.appeal-message {
+    font-size: 0.9rem;
+    color: var(--second-text);
+    margin-bottom: 0.8rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+.appeal-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.appeal-date {
+    font-size: 0.85rem;
+    color: var(--second-text);
+}
+
+.appeal-actions {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.action-btn {
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.secondary-action {
+    background: transparent;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color) !important;
+}
+
+.secondary-action:hover {
+    background: rgba(224, 1, 91, 0.1);
+}
+
+/* Пагинация */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+    position: sticky;
+    bottom: 0;
+    background: var(--primary-background);
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.page-btn {
+    padding: 0.5rem 0.9rem;
+    border: 1px solid var(--border-color);
+    background: var(--second-background);
+    color: var(--primary-text);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+    min-width: 40px;
+    text-align: center;
+}
+
+.page-btn.active {
+    background: var(--accent-color);
+    color: white;
+    border-color: var(--accent-color);
+}
+
+.page-btn:hover:not(.active):not(.disabled) {
+    background: var(--primary-background);
+}
+
+.page-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Стили для кнопки фильтров */
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.filter-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    background: var(--second-background);
+    border-color: var(--accent-color);
+}
+
+.filter-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Выпадающее меню фильтров */
+.filters-dropdown {
+    right: 0;
+    left: auto;
+    min-width: 280px;
+    padding: 1rem;
+}
+
+.filter-group {
+    margin-bottom: 1rem;
+}
+
+.filter-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--second-text);
+}
+
+.filter-select {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--primary-background);
+    color: var(--primary-text);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.filter-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.filter-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
+
+.apply-filters-btn {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.apply-filters-btn:hover {
+    background: #c00050;
+}
+
+.appeal-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.action-btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.primary-action {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+.primary-action:hover {
+    background-color: var(--primary-dark-color);
+}
+
+.secondary-action {
+    background-color: transparent;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+}
+
+.secondary-action:hover {
+    background-color: var(--primary-light-color);
+}
+
+/* Стили для карточек удаленных аккаунтов */
+.deleted-account-card {
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+}
+
+.deleted-account-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.main-account {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.main-account-link {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.main-account-link:hover {
+    text-decoration: underline;
+}
+
+.deleted-accounts-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.deleted-account-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.deleted-account-link {
+    color: var(--second-text);
+    text-decoration: none;
+}
+
+.deleted-account-link:hover {
+    color: var(--accent-color);
+}
+
+.deleted-account-date {
+    font-size: 0.85rem;
+    color: var(--second-text);
+    margin-top: 0.8rem;
+}
+
+/* Стили для формы добавления */
+.deleted-account-input {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.deleted-account-input input {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--second-background);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--primary-text);
+}
+
+.remove-account-btn {
+    background: var(--status-rejected-bg);
+    color: var(--status-rejected-text);
+    border: none;
+    border-radius: 4px;
+    width: 36px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.remove-account-btn:hover {
+    background: var(--status-rejected-border);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .header-actions {
+        flex-direction: column;
+        align-items: flex-end;
+        width: 100%;
+    }
+    
+    .filters-dropdown {
+        width: 100%;
+    }
+}
+
+@media (max-width: 1200px) {
+    .dashboard-content.chat-open {
+        display: flex;
+        flex-direction: column;
+    }
+}

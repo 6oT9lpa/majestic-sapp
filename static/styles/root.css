@@ -1,0 +1,158 @@
+:root {
+    /* Общие переменные */
+    --primary-text: #fff;
+    --second-text: #707070;
+    --primary-background: #1d1d1d;
+    --second-background: #242424;
+    --primary-link: #3687ee;
+    --second-link: #042c5b;
+    --border-color: #424242;
+    --accent-color: #e0015b;
+    --font-proxima: 'Roboto', sans-serif;
+
+    /* Цвета статусов для тёмной темы */
+    --status-pending-bg: rgba(200, 200, 200, 0.1);
+    --status-pending-border: rgba(200, 200, 200, 0.3);
+    --status-pending-text: #cccccc;
+
+    --status-in-progress-bg: rgba(230, 160, 190, 0.1);
+    --status-in-progress-border: rgba(230, 160, 190, 0.3);
+    --status-in-progress-text: #e3b0c7;
+
+    --status-resolved-bg: rgba(0, 200, 100, 0.1);
+    --status-resolved-border: rgba(0, 200, 100, 0.3);
+    --status-resolved-text: #00cc66;
+
+    --status-rejected-bg: rgba(255, 80, 130, 0.1);
+    --status-rejected-border: rgba(255, 80, 130, 0.3);
+    --status-rejected-text: #ff4d88;
+}
+
+[data-theme="light"] {
+    /* Цвета интерфейса для светлой темы */
+    --primary-text: #1d1d1d;
+    --second-text: #5a5a5a;
+    --primary-background: #ffffff;
+    --second-background: #f5f5f5;
+    --primary-link: #2828b6;
+    --second-link: #97b0f7;
+    --border-color: #424242;
+    --accent-color: #e0015b;
+    --font-proxima: 'Roboto', sans-serif;
+
+    /* Цвета статусов для светлой темы */
+    --status-pending-bg: rgba(188, 188, 188, 0.15);
+    --status-pending-border: var(--border-color);
+    --status-pending-text: var(--second-text);
+
+    --status-in-progress-bg: rgba(95, 60, 74, 0.15);
+    --status-in-progress-border: rgba(95, 60, 74, 0.3);
+    --status-in-progress-text: var(--second-text);
+
+    --status-resolved-bg: rgba(0, 125, 51, 0.15);
+    --status-resolved-border: rgba(0, 125, 51, 0.3);
+    --status-resolved-text: var(--second-text);
+
+    --status-rejected-bg: rgba(140, 14, 67, 0.15);
+    --status-rejected-border: rgba(140, 14, 67, 0.3);
+    --status-rejected-text: var(--second-text);
+}
+
+[data-theme="dark"] .sun-icon {
+    display: none;
+}
+
+[data-theme="dark"] .moon-icon {
+    display: block;
+}
+
+[data-theme="light"] .sun-icon {
+    display: block;
+}
+
+[data-theme="light"] .moon-icon {
+    display: none;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box; 
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-proxima);
+    line-height: 1.6;
+    background: var(--primary-background);
+    color: var(--primary-text);
+    overflow-x: hidden;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.show {
+    opacity: 1;
+    transform: translateY(20px);
+}
+
+.hidden {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+.notification {
+    display: flex;
+    gap: 15px;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    color: var(--primary-text-color);
+    z-index: 9999;
+    animation: slideIn 0.3s ease-out;
+    backdrop-filter: blur(10px);
+    border: 1px solid;
+    max-width: 350px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    color: var(--primary-text);
+}
+
+.notification.success {
+    background: rgb(127 127 127 / 25%);
+    border-color: #7AFF7A;
+}
+
+.notification.error {
+    background: rgb(127 127 127 / 25%);
+    border-color: #FF4D4D;
+}
+
+.notification.warning {
+    background: rgb(127 127 127 / 25%);
+    border-color: #FFA500;
+}
+
+.notification.fade-out {
+    animation: fadeOut 0.5s ease-out;
+}
+
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--second-background);
+}
+
+::-webkit-scrollbar-thumb {
+    background-color: var(--border-color);
+    border-radius: 4px;
+    border: 2px solid var(--second-background);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background-color: var(--accent-color);
+}

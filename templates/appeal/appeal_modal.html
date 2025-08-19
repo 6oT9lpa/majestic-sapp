@@ -1,0 +1,91 @@
+<!-- Модальное окно для нового обращения -->
+<div class="modal hidden" id="supportModal" style="display: none;">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+
+        <div class="modal-tabs">
+            <button class="tab-btn active" data-tab="help">Помощь</button>
+            <button class="tab-btn" data-tab="complaint">Жалоба</button>
+            <button class="tab-btn" data-tab="amnesty">Амнистия</button>
+            <div class="tab-indicator"></div>
+        </div>
+        
+        <div class="tab-content" id="complaint-tab">
+            <form class="auth-form">
+                <div class="form-group">
+                    <label for="complaint-email">Ваша почта</label>
+                    <input type="email" id="complaint-email" placeholder="Введите вашу почту">
+                </div>
+                <div class="form-group">
+                    <label for="complaint-nickname">Ваш ник</label>
+                    <input type="text" id="complaint-nickname" placeholder="Введите ваш ник">
+                    <div class="error-message" id="complaint-nickname-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="complaint-nickname-moder">Ник модератора</label>
+                    <input type="text" id="complaint-nickname-moder" placeholder="Введите ник модератора">
+                    <div class="error-message" id="complaint-nickname-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="complaint-description">Описание ситуации и время происшествия</label>
+                    <textarea id="complaint-description" placeholder="Опишите ситуацию и укажите время" maxlength="1500" rows="4"></textarea>
+                    <div class="error-message" id="complaint-description-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="complaint-attachment">Прикрепить ссылку на скрин или видео</label>
+                    <input type="text" id="complaint-attachment" placeholder="Вставьте ссылку на imgur/youtube и т.д">
+                </div>
+                <button type="submit" class="submit-btn">Отправить жалобу</button>
+            </form>
+        </div>
+        
+        <div class="tab-content" id="amnesty-tab">
+            <form class="auth-form">
+                <div class="form-group">
+                    <label for="amnesty-nickname">Ваш ник</label>
+                    <input type="text" id="amnesty-nickname" placeholder="Введите ваш ник">
+                </div>
+                <div class="form-group">
+                    <label for="amnesty-email">Ваша почта</label>
+                    <input type="email" id="amnesty-email" placeholder="Введите вашу почту">
+                </div>
+                <div class="form-group">
+                    <label for="amnesty-admin">Кто выдал наказание</label>
+                    <input type="text" id="amnesty-admin" placeholder="Введите ник администратора или оставьте пустым">
+                    <div class="error-message" id="amnesty-admin-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="amnesty-description">Описание ситуации и время происшествия</label>
+                    <textarea id="amnesty-description" placeholder="Опишите ситуацию и укажите время" maxlength="1500" rows="4"></textarea>
+                    <div class="error-message" id="amnesty-description-error"></div>
+                </div>
+                <button type="submit" class="submit-btn">Подать на амнистию</button>
+            </form>
+        </div>
+        
+        <div class="tab-content active" id="help-tab">
+            <form class="auth-form">
+                <div class="form-group">
+                    <label for="help-nickname">Ваш Ник</label>
+                    <input type="text" id="help-nickname" placeholder="Введите ваш ник">
+                    <div class="error-message" id="help-nickname-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="help-email">Ваша Почта</label>
+                    <input type="email" id="help-email" placeholder="Введите вашу почту">
+                    <div class="error-message" id="help-email-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="help-description">Описание проблема (до 1500 символов)</label>
+                    <textarea id="help-description" placeholder="Опишите вашу проблему" maxlength="1500" rows="4"></textarea>
+                    <div class="error-message" id="help-description-error"></div>
+                </div>
+                <div class="form-group">
+                    <label for="help-attachment">Прикрепить ссылку на скрин или видео</label>
+                    <input type="text" id="help-attachment" placeholder="Вставьте ссылку на imgur/youtube и т.д">
+                </div>
+                <button type="submit" class="submit-btn">Отправить обращение</button>
+            </form>
+        </div>
+    </div>
+</div>

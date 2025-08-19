@@ -1,0 +1,30 @@
+<!-- Контейнер для чата -->
+<div class="appeal-chat-container" id="appeal-chat-container" style="display: none;">
+    <div class="appeal-chat-header">
+        <div class="appeal-group-chat">
+            <h3 id="appeal-chat-title">Чат обращения <span class="appeal-type" id="appeal-type"></span></h3>
+            <p id="appeal-id"></p>
+        </div>
+        <button class="close-chat-btn">&times;</button>
+    </div>
+    <div class="appeal-messages" id="appeal-messages">
+        <!-- Сообщения будут загружаться здесь -->
+    </div>
+    <div class="appeal-message-form">
+        <div id="attachments-list" class="attachments-list"></div>
+        <div class="message-input-container">
+            <button class="attachment-btn" id='attachment-btn'>
+                <svg width="24px" height="24px" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" class="si-glyph si-glyph-paper-clip" fill="currentColor">
+                    <g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <title>Paper-clip</title> <defs> </defs> <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"> <path d="M6.346,16 C5.009,16 4,14.907 4,13.725 L4,3.99799991 C4,1.63391113 5.25378418,0 7.69795109,0 L8.3671875,0 C11.046,0 12,1.56054688 12,3.99799991 L12,11.0050049 L11.046,11.0050049 L11.046,3.99799991 C11.046,2.4140625 10.4089355,1 8.3671875,1 L7.68199992,1 C5.87280273,1 5,2.31750488 5,3.99799991 L5,13.725 C5,14.463 5.448,14.999 6.345,14.999 L7.683,14.999 C8.535,14.999 9.062,14.511 9.062,13.725 L9.062,5.756 C9.062,5.225 8.98100008,5.03984473 7.94300008,4.99084473 C6.88400008,5.04284473 7,5.262 7,5.756 L6.99999995,10.0100098 L5.99899995,10.0100098 L5.999,5.756 C5.999,4.635 6.635,4.06 7.943,3.998 C9.249,4.058 10,4.616 10,5.756 L10,13.725 C10,14.947 8.966,16 7.682,16 L6.346,16 Z" fill="currentColor" class="si-glyph-fill"> </path> </g> </g>
+                </svg>
+            </button>
+            <textarea id="message-input" placeholder="Введите сообщение..." rows="4" maxlength="1500"></textarea>
+            <button id="send-message-btn" class="send-btn">
+                <svg width="24px" height="24px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+                    <g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracurrentColorerCarrier" stroke-linecurrentcap="round" stroke-linejoin="round"></g><g id="SVGRepo_icurrentColoronCarrier"> <title>arrow-up-currentColorircurrentColorle</title> <descurrentc>Created with SketcurrentColorh Beta.</descurrentc> <defs> </defs> <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" sketcurrentch:type="MSPage"> <g id="IcurrentColoron-Set-Filled" sketcurrentch:type="MSLayerGroup" transform="translate(-362.000000, -1089.000000)" fill="currentColor"> <path d="M384.535,1105.54 C384.145,1105.93 383.512,1105.93 383.121,1105.54 L379,1101.41 L379,1112 C379,1112.55 378.553,1113 378,1113 C377.447,1113 377,1112.55 377,1112 L377,1101.41 L372.879,1105.54 C372.488,1105.93 371.854,1105.93 371.465,1105.54 C371.074,1105.14 371.074,1104.51 371.465,1104.12 L377.121,1098.46 C377.361,1098.22 377.689,1098.15 378,1098.21 C378.311,1098.15 378.639,1098.22 378.879,1098.46 L384.535,1104.12 C384.926,1104.51 384.926,1105.14 384.535,1105.54 L384.535,1105.54 Z M378,1089 C369.163,1089 362,1096.16 362,1105 C362,1113.84 369.163,1121 378,1121 C386.837,1121 394,1113.84 394,1105 C394,1096.16 386.837,1089 378,1089 L378,1089 Z" id="arrow-up-currentColorircurrentColorle" sketcurrentch:type="MSShapeGroup"> </path> </g> </g> </g>
+                </svg>
+            </button>
+            <div class="message-counter"><span id="char-count">0</span>/500</div>
+        </div>
+    </div>
+</div>

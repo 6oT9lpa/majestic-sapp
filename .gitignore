@@ -1,0 +1,12 @@
+.vscode/
+venv/
+storage/*
+src/__pycache__/
+src/api/__pycache__/
+src/models/__pycache__/
+src/schemas/__pycache__/
+src/scripts/__pycache__/
+src/services/__pycache__/
+src/utils/__pycache__/
+alembic.ini
+alembic/
