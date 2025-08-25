@@ -45,6 +45,20 @@ class SecurityUtils:
         return role["level"] >= permission.value[1].value
 
     @staticmethod
+    def can_view_appeal_type(user: dict, appeal_type: str) -> bool:
+        """Проверяет, может ли пользователь видеть обращения данного типа"""
+        from src.security_middleware import AppealPermissionChecker
+        allowed_types = AppealPermissionChecker.get_allowed_appeal_types(user)
+        return appeal_type in allowed_types
+
+    @staticmethod
+    def can_view_appeal_status(user: dict, appeal_type: str, appeal_status: str) -> bool:
+        """Проверяет, может ли пользователь видеть обращения данного типа и статуса"""
+        from src.security_middleware import AppealPermissionChecker
+        allowed_statuses = AppealPermissionChecker.get_allowed_statuses(user, appeal_type)
+        return appeal_status in allowed_statuses
+    
+    @staticmethod
     def check_permission(user: dict, permission: PermissionType) -> None:
         """Вызывает исключение, если право отсутствует"""
         if not SecurityUtils.has_permission(user, permission):

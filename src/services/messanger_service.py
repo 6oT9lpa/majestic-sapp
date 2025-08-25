@@ -3,11 +3,12 @@ from src.models.user_model import SupportAssignment, User
 from src.database import get_session
 from src.models.appeal_model import AppealMessage
 
-from typing import List
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, and_, func
 from fastapi import Depends, UploadFile, HTTPException
 from pathlib import Path
+from datetime import datetime
 import uuid
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -134,7 +135,8 @@ class MessangerService:
         self,
         appeal_id: uuid.UUID,
         new_status: str,
-        assigned_to: uuid.UUID = None
+        assigned_to: uuid.UUID = None,
+        assigned_by: uuid.UUID = None
     ):
         """Обновить статус обращения и назначить модератора"""
         result = await self.session.execute(
@@ -165,8 +167,12 @@ class MessangerService:
                 assigned_at=func.now()
             )
             self.session.add(assignment)
+            
+            if assigned_by:
+                await self.notify_moderator_assignment(appeal_id, assigned_to, assigned_by)
         
         await self.session.commit()
+        await self.notify_appeal_update(appeal_id, "status_changed")
     
     async def reassign_appeal(
         self,
@@ -262,6 +268,8 @@ class MessangerService:
             self.session.add(system_msg)
         
         await self.session.commit()
+        
+        await self.notify_appeal_update(appeal_id, "reassigned")
 
     async def close_appeal(
         self,
@@ -290,6 +298,7 @@ class MessangerService:
         )
         
         appeal.status = status
+        await self.notify_appeal_update(appeal_id, "closed")
         await self.session.commit()
 
     async def get_appeal_messages(
@@ -320,6 +329,97 @@ class MessangerService:
             messages.append(message_data)
         
         return messages
+    
+    async def notify_appeal_update(self, appeal_id: uuid.UUID, action: str = "update"):
+        """Уведомить всех о изменении обращения"""
+        from src.websoket import manager
+        
+        appeal_data = await self.get_appeal_data_for_broadcast(appeal_id)
+        if not appeal_data:
+            return
+        
+        message = {
+            "type": f"appeal_{action}",
+            "appeal": appeal_data,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        await manager.broadcast_appeal_update(message)
+        
+        counters_message = {
+            "type": "counters_update",
+            "counters": await self.get_appeals_counters()
+        }
+        await manager.broadcast_appeal_update(counters_message)
+
+    async def get_appeals_counters(self) -> dict:
+        """Получить актуальные счетчики обращений"""
+        from sqlalchemy import select, func, and_
+        
+        # Счетчик необработанных обращений
+        pending_result = await self.session.execute(
+            select(func.count()).select_from(Appeal).where(
+                Appeal.status == "pending"
+            )
+        )
+        pending = pending_result.scalar() or 0
+        
+        return {
+            "pending": pending,
+            "user_assigned": 0  
+        }
+
+    async def get_appeal_data_for_broadcast(self, appeal_id: uuid.UUID) -> dict:
+        """Получить данные обращения для broadcast"""
+        result = await self.session.execute(
+            select(Appeal).where(Appeal.id == appeal_id)
+        )
+        appeal = result.scalar()
+        
+        if not appeal:
+            return None
+        
+        return {
+            "id": str(appeal.id),
+            "type": appeal.type,
+            "status": appeal.status,
+            "user_id": str(appeal.user_id) if appeal.user_id else None,
+            "assigned_to": await self.get_assigned_moderator(appeal.id),
+            "updated_at": datetime.now().isoformat()
+        }
+
+    async def get_assigned_moderator(self, appeal_id: uuid.UUID) -> Optional[str]:
+        """Получить ID назначенного модератора"""
+        result = await self.session.execute(
+            select(AppealAssignment.user_id)
+            .where(
+                and_(
+                    AppealAssignment.appeal_id == appeal_id,
+                    AppealAssignment.released_at == None
+                )
+            )
+        )
+        assignment = result.scalar_one_or_none()
+        return str(assignment) if assignment else None
+    
+    async def notify_moderator_assignment(
+        self,
+        appeal_id: uuid.UUID,
+        moderator_id: uuid.UUID,
+        assigned_by: uuid.UUID
+    ):
+        """Отправить уведомление модератору о новом назначении"""
+        from src.websoket import manager
+        
+        # Получаем информацию о том, кто назначил
+        assigned_by_user = await self.session.get(User, assigned_by)
+        assigned_by_name = assigned_by_user.username if assigned_by_user else "Система"
+        
+        await manager.notify_moderator_assignment(
+            str(appeal_id),
+            str(moderator_id),
+            assigned_by_name
+        )
     
 async def get_messager_service(session: AsyncSession = Depends(get_session)) -> MessangerService:
     return MessangerService(session)

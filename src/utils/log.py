@@ -24,6 +24,7 @@ class ActionType(str, Enum):
     rejected_request = "rejected_request"                       # Отклонение заявки +
     password_changed = "password_changed"                       # Смена пароля +
     username_change_request = "username_change_request"         # Запрос на смену ника +
+    upload_reports = "upload_reports"                           # Загрузка отчетов +
 
 async def log_action (
     request: Request,

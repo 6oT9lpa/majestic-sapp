@@ -512,8 +512,7 @@ tr:hover {
     width: 100%;
     max-width: 1500px;
     min-height: 400px;
-    max-height: calc(100vh - 5rem);
-    overflow-y: auto;
+    max-height: calc(100vh - 6rem);
 }
 
 .modal-content .tab-content {

@@ -20,31 +20,31 @@ class PermissionType(str, Enum):
     SUPPORT_REPLY = (
         "respond_support_tickets",
         PermissionLevel.JUNIOR_MODERATOR
-    ) # Ответ на обращение о помощи
+    )
     ELIGIBLE_AS_MENTOR = (
         "eligible_as_mentor", 
         PermissionLevel.MODERATOR
-    ) # Наставник
+    )
     MANAGE_MULTI_ACCOUNTS = (
         "manage_multi_accounts", 
         PermissionLevel.MULTI_ACCOUNT_MODERATOR
-    ) # Учет мулти аккаунтов
+    )
     VIEW_ACTIVE_CHATS = (
         "view_active_chats", 
         PermissionLevel.MODERATOR_SUPERVISOR
-    ) # Пользователь видит все обращения
+    )
     MANAGE_REPORTS = (
         "manage_reports", 
         PermissionLevel.MODERATOR_SUPERVISOR
-    ) # Возможности вести отчетсность
+    )
     RESPOND_MODERATION_COMPLAINTS = (
         "respond_moderation_complaints", 
         PermissionLevel.CHIEF_CURATOR
-    ) # Ответ на жалобы   
+    )
     RESPOND_AMNESTY_REQUESTS = (
         "respond_amnesty_requests", 
         PermissionLevel.LEAD_ADMINISTRATOR
-    ) # Ответ на амнистии
+    )
 
     MANAGE_ROLES = ("manage_roles", PermissionLevel.FORUM_MODERATOR)
     MANAGE_USERS = ("manage_users", PermissionLevel.FORUM_MODERATOR)

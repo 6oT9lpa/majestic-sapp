@@ -110,7 +110,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             showNotification(`Ошибка: ${error.message}`, 'error');
         }
     });
+
+    initAppealsListWebSocket();
+    fetchAppealsCounters().then(updateCounters);
 });
+
+setInterval(() => {
+    if (appealsListSocket && appealsListSocket.readyState === WebSocket.OPEN) {
+        appealsListSocket.send('ping');
+    }
+}, 30000);
 
 let currentFilters = {
     type: 'all',
@@ -118,6 +127,7 @@ let currentFilters = {
     assignedToMe: false,
     tabId: null
 };
+let appealsListSocket = null;
 
 async function loadFiltersFromStorage() {
     const savedFilters = localStorage.getItem('appealsFilters');
@@ -135,6 +145,182 @@ async function loadFiltersFromStorage() {
                 await loadAppeals(currentFilters.tabId);
             }
         }
+    }
+}
+
+function initAppealsListWebSocket() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/messanger/appeals-list-ws`;
+    
+    appealsListSocket = new WebSocket(wsUrl);
+    
+    appealsListSocket.onopen = function() {
+        console.log('WebSocket для списка обращений подключен');
+        loadAppeals(currentFilters.tabId);
+    };
+    
+    appealsListSocket.onmessage = async function(event) {
+        try {
+            if (event.data === 'pong') {
+                return; 
+            }
+            
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'counters_update') {
+                updateCounters(data.counters);
+            }
+            else if (data.type === 'appeal_update' || 
+                    data.type === 'appeal_status_changed' ||
+                    data.type === 'appeal_closed' ||
+                    data.type === 'appeal_reassigned' ||
+                    data.type === 'appeal_reassigned' ||
+                    data.type === 'appeal_created') { 
+                
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab && activeTab.id.includes('appeals')) {
+                    const tabId = activeTab.id.replace('-tab', '');
+                    await loadAppeals(tabId);
+                }
+                
+                const counters = await fetchAppealsCounters();
+                updateCounters(counters);
+                
+                if (data.type === 'appeal_created') {
+                    showNotification('Добавлено новое обращение', 'info');
+                }
+            }
+            
+        } catch (error) {
+            if (event.data !== 'pong') {
+                console.error('Ошибка обработки WebSocket сообщения:', error, event.data);
+            }
+        }
+    };
+    
+    appealsListSocket.onclose = function() {
+        console.log('WebSocket для списка обращений отключен, переподключение через 3 секунды...');
+        setTimeout(initAppealsListWebSocket, 3000);
+    };
+    
+    appealsListSocket.onerror = function(error) {
+        console.error('WebSocket ошибка:', error);
+    };
+}
+
+async function fetchAppealsCounters() {
+    try {
+        const response = await fetch('/dashboard/admin/appeals/counters', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            return await response.json();
+        }
+        return { pending: 0, user_assigned: 0 };
+    } catch (error) {
+        console.error('Ошибка получения счетчиков:', error);
+        return { pending: 0, user_assigned: 0 };
+    }
+}
+
+function updateCounters(counters) {
+    const pendingCounter = document.getElementById('pending-counter-value');
+    const assignedCounter = document.getElementById('assigned-counter-value');
+    
+    if (pendingCounter) {
+        pendingCounter.textContent = counters.pending || 0;
+    }
+    
+    if (assignedCounter) {
+        assignedCounter.textContent = counters.user_assigned || 0;
+    }
+}
+
+async function forceCloseAppeal(appealId) {
+    const reason = prompt('Укажите причину принудительного закрытия:');
+    if (!reason) return;
+    
+    try {
+        const formData = new URLSearchParams();
+        formData.append('reason', reason);
+        
+        const response = await fetch(`/dashboard/admin/appeals/${appealId}/force-close?${formData.toString()}`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error('Ошибка закрытия');
+        
+        showNotification('Обращение принудительно закрыто', 'success');
+        loadAppeals(currentFilters.tabId);
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
+}
+
+async function showReassignToModal(appealId) {
+    try {
+        const response = await fetch('/dashboard/admin/moderators', {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) throw new Error('Ошибка загрузки модераторов');
+        
+        const moderators = await response.json();
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal reassign-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>Переназначить на модератора</h3>
+                <select id="moderator-select" class="modal-select">
+                    <option value="">Выберите модератора</option>
+                    ${moderators.map(m => `<option value="${m.id}">${m.username} (${m.role_name})</option>`).join('')}
+                </select>
+                <div class="modal-actions">
+                    <button class="modal-btn primary" id="confirm-reassign">Переназначить</button>
+                    <button class="modal-btn secondary" id="cancel-reassign">Отмена</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        document.getElementById('confirm-reassign').addEventListener('click', async () => {
+            const select = document.getElementById('moderator-select');
+            const moderatorId = select.value;
+            
+            if (!moderatorId) {
+                showNotification('Выберите модератора', 'error');
+                return;
+            }
+            
+            try {
+                const formData = new URLSearchParams();
+                formData.append('moderator_id', moderatorId);
+                
+                const response = await fetch(`/dashboard/admin/appeals/${appealId}/reassign-to?${formData.toString()}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Ошибка переназначения');
+                
+                showNotification('Обращение переназначено', 'success');
+                modal.remove();
+                loadAppeals(currentFilters.tabId);
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        });
+        
+        document.getElementById('cancel-reassign').addEventListener('click', () => {
+            modal.remove();
+        });
+        
+    } catch (error) {
+        showNotification(error.message, 'error');
     }
 }
 
@@ -279,7 +465,6 @@ async function loadAppeals(tabId, page = 1) {
     const appealsListContainer = tabContent.querySelector('.appeals-list');
     if (!appealsListContainer) return;
 
-    // Показываем индикатор загрузки только если контейнер пуст
     if (!appealsListContainer.querySelector('.appeal-card')) {
         appealsListContainer.innerHTML = `
             <div class="loading-row">
@@ -322,7 +507,11 @@ async function loadAppeals(tabId, page = 1) {
             if (response.status === 403) {
                 const error = await response.json();
                 appealsListContainer.innerHTML = `
-                    <div class="no-appeals">${error.detail}</div>
+                    <div class="no-appeals">
+                        <i class="fas fa-lock"></i>
+                        <p>${error.detail || 'Нет доступа к данным обращениям'}</p>
+                        <p class="small-text">Обратитесь к руководителю для получения прав доступа</p>
+                    </div>
                 `;
                 return;
             }
@@ -348,7 +537,8 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
 
     appeals.forEach(appeal => {
         const date = new Date(appeal.created_at).toLocaleString();
-
+        const canForceClose = currentUser.role.level >= 6;
+        
         html += `
             <div class="appeal-card" data-id="${appeal.id}">
                 <div class="appeal-header">
@@ -367,6 +557,14 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
                 <div class="appeal-footer">
                     <span class="appeal-date">${date}</span>
                     <div class="appeal-actions">
+                        ${canForceClose ? `
+                        <button class="action-btn danger-action force-close-btn" data-id="${appeal.id}">
+                            Принудительно закрыть
+                        </button>
+                        <button class="action-btn secondary-action reassign-to-btn" data-id="${appeal.id}">
+                            Назначить
+                        </button>
+                        ` : ''}
                         <button class="action-btn secondary-action take-btn" data-id="${appeal.id}">
                             Открыть
                         </button>
@@ -387,6 +585,20 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
         btn.addEventListener('click', () => {
             const page = btn.getAttribute('data-page');
             loadAppeals(tabId, parseInt(page));
+        });
+    });
+
+    document.querySelectorAll('.force-close-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const appealId = btn.getAttribute('data-id');
+            forceCloseAppeal(appealId);
+        });
+    });
+    
+    document.querySelectorAll('.reassign-to-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const appealId = btn.getAttribute('data-id');
+            showReassignToModal(appealId);
         });
     });
 }

@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (el.id.includes('email')) {
                         el.value = currentUser.email;
                         el.readOnly = true;
-                    } else if (el.id.includes('nickname')) {
+                    } else if (el.id.includes('nickname') && !el.id.includes('violator') && !el.id.includes('admin')) {
                         el.value = currentUser.username;
                         el.readOnly = true;
                     }
@@ -62,11 +62,16 @@ function getFormData(type, form) {
         data.description = form.querySelector('#help-description').value;
         data.attachment = form.querySelector('#help-attachment').value || null;
     } else if (type === AppealType.COMPLAINT) {
-        data.violator_nickname = form.querySelector('#complaint-nickname').value;
+        data.nickname = form.querySelector('#complaint-nickname').value;
+        data.email = form.querySelector('#complaint-email').value;
+        data.violator_nickname = form.querySelector('#complaint-violator-nickname').value;
         data.description = form.querySelector('#complaint-description').value;
         data.attachment = form.querySelector('#complaint-attachment').value || null;
     } else if (type === AppealType.AMNESTY) {
-        data.admin_nickname = form.querySelector('#amnesty-admin').value;
+        data.nickname = form.querySelector('#amnesty-nickname').value;
+        data.email = form.querySelector('#amnesty-email').value;
+        data.admin_nickname = form.querySelector('#amnesty-admin').value || null;
+        data.description = form.querySelector('#amnesty-description').value;
     }
     
     return data;
@@ -77,9 +82,10 @@ function validateUrl(url) {
     
     const allowedDomains = [
         'youtube.com',
+        'youtu.be',
         'rutube.ru',
         'imgur.com',
-        'yapix.ru'
+        'yapx.ru'
     ];
     
     try {
@@ -89,7 +95,6 @@ function validateUrl(url) {
         return false;
     }
 }
-
 
 function validateAppealForm(type, form) {
     let isValid = true;
@@ -119,17 +124,31 @@ function validateAppealForm(type, form) {
 
         const attachment = form.querySelector('#help-attachment');
         if (attachment.value && !validateUrl(attachment.value)) {
-            showFieldError(attachment, 'Разрешены только ссылки с YouTube, Rutube, Imgur или Yapix');
+            showFieldError(attachment, 'Разрешены только ссылки с YouTube, Rutube, Imgur или Yapx');
             isValid = false;
         }
         
     } else if (type === AppealType.COMPLAINT) {
-        const violatorNickname = form.querySelector('#complaint-nickname');
+        const nickname = form.querySelector('#complaint-nickname');
+        const email = form.querySelector('#complaint-email');
+        const violatorNickname = form.querySelector('#complaint-violator-nickname');
         const description = form.querySelector('#complaint-description');
+        
+        // Валидация никнейма пользователя
+        if (!nickname.value || !/^[a-zA-Z0-9]{3,20}$/.test(nickname.value)) {
+            showFieldError(nickname, 'Ваш никнейм должен содержать 3-20 символов (буквы, цифры)');
+            isValid = false;
+        }
+        
+        // Валидация email
+        if (!email.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+            showFieldError(email, 'Введите корректный email');
+            isValid = false;
+        }
         
         // Валидация никнейма нарушителя
         if (!violatorNickname.value || !/^[a-zA-Z0-9]{3,50}$/.test(violatorNickname.value)) {
-            showFieldError(violatorNickname, 'Никнейм должен содержать 3-50 символов (буквы, цифры)');
+            showFieldError(violatorNickname, 'Никнейм нарушителя должен содержать 3-50 символов (буквы, цифры)');
             isValid = false;
         }
         
@@ -146,8 +165,22 @@ function validateAppealForm(type, form) {
         }
         
     } else if (type === AppealType.AMNESTY) {
+        const nickname = form.querySelector('#amnesty-nickname');
+        const email = form.querySelector('#amnesty-email');
         const adminNickname = form.querySelector('#amnesty-admin');
         const description = form.querySelector('#amnesty-description');
+
+        // Валидация никнейма пользователя
+        if (!nickname.value || !/^[a-zA-Z0-9]{3,20}$/.test(nickname.value)) {
+            showFieldError(nickname, 'Ваш никнейм должен содержать 3-20 символов (буквы, цифры)');
+            isValid = false;
+        }
+        
+        // Валидация email
+        if (!email.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+            showFieldError(email, 'Введите корректный email');
+            isValid = false;
+        }
 
         // Валидация никнейма администратора
         if (adminNickname.value && !/^[a-zA-Z0-9]{3,50}$/.test(adminNickname.value)) {
@@ -155,6 +188,7 @@ function validateAppealForm(type, form) {
             isValid = false;
         }
 
+        // Валидация описания 
         if (!description.value || description.value.length < 10 || description.value.length > 1500) {
             showFieldError(description, 'Описание должно содержать от 10 до 1500 символов');
             isValid = false;
@@ -202,7 +236,7 @@ async function checkUserExists(formData) {
             },
             body: JSON.stringify({
                 email: formData.email,
-                username: formData.nickname || formData.violator_nickname || formData.admin_nickname
+                username: formData.nickname
             })
         });
 

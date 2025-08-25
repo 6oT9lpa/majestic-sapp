@@ -87,6 +87,7 @@ async function connectWebSocket(appealId) {
             
             socket.onclose = (event) => {
                 isConnecting = false;
+                console.log("WebSocket closed:", event);
 
                 if (event.code !== 1000) {
                     canNotWriteToTheChat();
@@ -258,6 +259,7 @@ function setupMessageHandler() {
             console.log(message);
             if (message.error && message.error !== "Слишком частые сообщения. Пожалуйста, подождите.") {
                 showNotification(message.error, 'error');
+                console.log("WebSocket closed:", event);
                 canNotWriteToTheChat();
                 return;
             }

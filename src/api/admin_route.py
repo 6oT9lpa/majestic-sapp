@@ -2,17 +2,20 @@ from fastapi import APIRouter, Depends, Request, HTTPException, Query, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.encoders import jsonable_encoder
 from typing import List, Optional
+from sqlalchemy import select, func, and_
 import json
 import uuid
 
 from src.utils.security import SecurityUtils
 from src.models.appeal_model import AppealStatus, AppealType
+from src.models.appeal_model import Appeal, AppealAssignment
 from src.security_middleware import RoleLevelChecker, AppealPermissionChecker, PermissionLevel
 from src.services.auth_handler import get_current_user
 from src.services.admin_service import AdminService, get_admin_service
 from src.schemas.dashboard_schema import ForumUrlSchema
 from src.services.logs_service import LogService, get_log_service
 from src.utils.log import log_action, ActionType
+from src.services.messanger_service import MessangerService, get_messager_service
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -54,11 +57,12 @@ async def get_appeals(
             search=search
         )
 
-    # Фильтрация по разрешенным типам обращений
+    # Получаем разрешенные типы обращений для пользователя
     allowed_types = AppealPermissionChecker.get_allowed_appeal_types(user)
     if not allowed_types:
         raise HTTPException(status_code=403, detail="Нет прав для просмотра обращений")
-
+    
+    # Если указан конкретный тип, проверяем доступ
     if type and type.value not in allowed_types:
         raise HTTPException(status_code=403, detail=f"Нет прав для просмотра обращений типа {type.value}")
 
@@ -66,9 +70,9 @@ async def get_appeals(
     filtered_statuses = []
     for s in status:
         if type:
+            # Для конкретного типа проверяем разрешенные статусы
             allowed_for_type = AppealPermissionChecker.get_allowed_statuses(user, type.value)
         else:
-            # Если тип не указан, проверяем для всех разрешенных типов
             allowed_for_type = []
             for t in allowed_types:
                 allowed_for_type.extend(AppealPermissionChecker.get_allowed_statuses(user, t))
@@ -76,9 +80,13 @@ async def get_appeals(
         
         if s.value in allowed_for_type:
             filtered_statuses.append(s)
-
+    
     if not filtered_statuses:
         raise HTTPException(status_code=403, detail="Нет прав для просмотра обращений с указанными статусами")
+
+    effective_type = type if type else None
+    if not type:
+        allowed_type_objects = [AppealType(t) for t in allowed_types]
 
     return await admin_service.get_appeals(
         current_user=user,
@@ -87,7 +95,8 @@ async def get_appeals(
         assigned_to_me=assigned_to_me,
         page=page,
         per_page=per_page,
-        search=search
+        search=search,
+        allowed_types=allowed_types if not type else None 
     )
 
 @router.get("/appeals/{appeal_id}/support-moderator", dependencies=[Depends(RoleLevelChecker(PermissionLevel.JUNIOR_MODERATOR))])
@@ -375,4 +384,120 @@ async def reject_request(
     
     return {"message": "Заявка была успешно отклонена"}
 
+@router.get("/appeals/counters", dependencies=[Depends(RoleLevelChecker(PermissionLevel.JUNIOR_MODERATOR))])
+async def get_appeals_counters(
+    request: Request,
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Получить счетчики обращений"""
+    user = await get_current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    # Счетчик необработанных обращений
+    pending_result = await admin_service.session.execute(
+        select(func.count()).select_from(Appeal).where(
+            Appeal.status == "pending"
+        )
+    )
+    pending = pending_result.scalar() or 0
+    
+    # Счетчик обращений, назначенных текущему пользователю
+    user_assigned_result = await admin_service.session.execute(
+        select(func.count()).select_from(AppealAssignment)
+        .join(Appeal, AppealAssignment.appeal_id == Appeal.id)
+        .where(
+            and_(
+                AppealAssignment.user_id == user["id"],
+                AppealAssignment.released_at == None,
+                Appeal.status.in_(["pending", "in_progress"])
+            )
+        )
+    )
+    user_assigned = user_assigned_result.scalar() or 0
+    
+    return {
+        "pending": pending,
+        "user_assigned": user_assigned
+    }
 
+@router.post("/appeals/{appeal_id}/force-close", dependencies=[Depends(RoleLevelChecker(PermissionLevel.CHIEF_CURATOR))])
+async def force_close_appeal(
+    request: Request,
+    appeal_id: uuid.UUID,
+    reason: str,
+    messanger_service: MessangerService = Depends(get_messager_service)
+):
+    """Принудительно закрыть обращение"""
+    user = await get_current_user(request)
+    
+    if not SecurityUtils.has_role_or_higher(user, PermissionLevel.CHIEF_CURATOR):
+        raise HTTPException(status_code=403, detail="Недостаточно прав")
+    
+    try:
+        await messanger_service.close_appeal(
+            appeal_id=appeal_id,
+            status="resolved"
+        )
+        
+        await messanger_service.save_appeal_message(
+            appeal_id=appeal_id,
+            user_id=user["id"],
+            message=f"Обращение принудительно закрыто. Причина: {reason}",
+            is_system=True
+        )
+        
+        await log_action(
+            request=request,
+            action_type=ActionType.appeal_closed,
+            action_data=f"Пользователь {user['username']} принудительно закрыл обращение ID: {appeal_id}. Причина: {reason}",
+            user_id=user["id"]
+        )
+        
+        return {"detail": "Обращение принудительно закрыто"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+@router.get("/moderators", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MODERATOR))])
+async def get_moderators_list(
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Получить список модераторов"""
+    return await admin_service.get_moderators_list()
+
+@router.post("/appeals/{appeal_id}/reassign-to", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MODERATOR))])
+async def reassign_to_moderator(
+    request: Request,
+    appeal_id: uuid.UUID,
+    moderator_id: str,
+    messanger_service: MessangerService = Depends(get_messager_service)
+):
+    """Переназначить обращение на конкретного модератора"""
+    user = await get_current_user(request)
+    
+    try:
+        moderator_uuid = uuid.UUID(moderator_id)
+        
+        await messanger_service.update_appeal_status(
+            appeal_id=appeal_id,
+            new_status="in_progress",
+            assigned_to=moderator_uuid
+        )
+        
+        await messanger_service.save_appeal_message(
+            appeal_id=appeal_id,
+            user_id=user["id"],
+            message=f"Обращение переназначено на нового модератора",
+            is_system=True
+        )
+        
+        await log_action(
+            request=request,
+            action_type=ActionType.reassigning_appeal,
+            action_data=f"Пользователь {user['username']} переназначил обращение ID: {appeal_id} на модератора ID: {moderator_id}",
+            user_id=user["id"]
+        )
+        
+        return {"detail": "Обращение переназначено"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

@@ -1,6 +1,6 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from typing import Optional
 import uuid
 
@@ -45,12 +45,20 @@ class AppealService:
         elif appeal_data.type == AppealType.AMNESTY:
             amnesty_appeal = AmnestyAppeal(
                 appeal_id=appeal.id,
-                admin_nickname=appeal_data.admin_nickname
+                admin_nickname=appeal_data.admin_nickname,
+                description=appeal_data.description
             )
             self.session.add(amnesty_appeal)
         
         await self.session.commit()
         await self.session.refresh(appeal)
+        
+        from src.services.messanger_service import MessangerService
+        from src.database import get_session
+        
+        async for session in get_session():
+            messanger_service = MessangerService(session)
+            await messanger_service.notify_appeal_update(appeal.id, "created")
         
         return AppealResponse(
             id=appeal.id,
@@ -66,22 +74,28 @@ class AppealService:
         )
         appeal = result.scalar()
         
-        assigned = await self.session.execute(
-            select(
-                AppealAssignment.user_id,
-                User.username
-            ).join(User, User.id == AppealAssignment.user_id)
-            .where(AppealAssignment.appeal_id == appeal_id)
+        # Получаем текущее активное назначение
+        current_assignment = await self.session.execute(
+            select(AppealAssignment)
+            .where(
+                and_(
+                    AppealAssignment.appeal_id == appeal_id,
+                    AppealAssignment.released_at == None
+                )
+            )
         )
-
-        assigned_row = assigned.first()
-
+        current_assignment = current_assignment.scalar()
+        
         assigned_user_id = None
         assigned_user_name = None
 
-        if assigned_row:
-            assigned_user_id = assigned_row[0]
-            assigned_user_name = assigned_row[1]
+        if current_assignment:
+            assigned_user_id = current_assignment.user_id
+            user_result = await self.session.execute(
+                select(User).where(User.id == assigned_user_id))
+            user = user_result.scalar()
+            if user:
+                assigned_user_name = user.username
 
         if not appeal:
             return None
@@ -92,7 +106,7 @@ class AppealService:
             "status": appeal.status.value,
             "created_at": appeal.created_at.isoformat(),
             "user_id": appeal.user_id if appeal.user_id else None,
-            "assigned_moder_id": assigned_user_id,
+            "assigned_moder_id": assigned_user_id, 
             "assigned_moder_name": assigned_user_name,
             "description": None,
             "additional_info": {}

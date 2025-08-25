@@ -23,7 +23,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('reward-settings-btn')?.addEventListener('click', () => {
         showModal('rewardSettingsModal');
     });
+
+    document.getElementById('upload-reports-btn').addEventListener('click', () => {
+        document.getElementById('reports-file-input').click();
+    });
+
+    document.getElementById('reports-file-input').addEventListener('change', handleFileUpload);
+    document.getElementById('export-table-btn')?.addEventListener('click', toggleTableView);
 });
+
+let isTableView = false;
+let selectedFile = null;
 let currentFilters = {
     status: 'all',
     date: null,
@@ -806,11 +816,99 @@ function setupExpandButtons() {
     });
 }
 
-// Добавим в начало файла с другими константами
-let isTableView = false;
+async function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-// Добавим в функцию setupFilters() обработчик для новой кнопки
-document.getElementById('export-table-btn')?.addEventListener('click', toggleTableView);
+    if (!file.name.toLowerCase().endsWith('.json')) {
+        showNotification('Пожалуйста, выберите JSON файл', 'error');
+        return;
+    }
+
+    try {
+        const fileContent = await readFileAsText(file);
+        const reportsData = JSON.parse(fileContent);
+        
+        if (!Array.isArray(reportsData)) {
+            throw new Error('Файл должен содержать массив отчетов');
+        }
+
+        if (reportsData.length > 0) {
+            const firstReport = reportsData[0];
+            const requiredFields = ['staff', 'status', 'startDate', 'endDate', 'reportDate', 'link', 'report_id'];
+            
+            for (const field of requiredFields) {
+                if (!(field in firstReport)) {
+                    throw new Error(`Отсутствует обязательное поле: ${field}`);
+                }
+            }
+        }
+
+        selectedFile = {
+            file: file,
+            content: fileContent,
+            data: reportsData
+        };
+
+        showModal('confirmUploadModal');
+
+    } catch (error) {
+        console.error('Ошибка при чтении файла:', error);
+        showNotification(`Ошибка: ${error.message}`, 'error');
+        event.target.value = '';
+    }
+}
+
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = e => reject(new Error('Не удалось прочитать файл'));
+        reader.readAsText(file);
+    });
+}
+
+document.querySelector('.cancel-confirm-btn').addEventListener('click', () => {
+    hideModal('confirmUploadModal');
+    document.getElementById('reports-file-input').value = '';
+    selectedFile = null;
+});
+
+document.querySelector('.confirm-upload-btn').addEventListener('click', async () => {
+    if (!selectedFile) return;
+
+    try {
+        const formData = new FormData();
+        formData.append('reports_file', selectedFile.file);
+        formData.append('file_content', selectedFile.content);  
+
+        const response = await fetch('/dashboard/admin/reports/upload-reports', {
+            method: 'POST',
+            body: formData,  
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Ошибка загрузки файла');
+        }
+
+        const result = await response.json();
+        showNotification(result.message || 'Отчеты успешно загружены', 'success');
+        
+        loadComplaints();
+
+    } catch (error) {
+        console.error('Ошибка при загрузке отчетов:', error);
+        showNotification(`Ошибка: ${error.message}`, 'error');
+    } finally {
+        hideModal('confirmUploadModal');
+        document.getElementById('reports-file-input').value = '';
+        selectedFile = null;
+    }
+});
+
+
 
 function toggleTableView() {
     isTableView = !isTableView;
@@ -819,11 +917,9 @@ function toggleTableView() {
     
     if (isTableView) {
         btn.innerHTML = '<i class="fas fa-list"></i> Вернуть к карточкам';
-        // Получаем текущие данные пользователей из DOM
         const cards = reportsList.querySelectorAll('.complaint-card');
         if (cards.length > 0) {
             const users = Array.from(cards).map(card => {
-                // Извлекаем текст из элементов и преобразуем в числа
                 const getNumberFromSelector = (selector) => {
                     const element = card.querySelector(selector);
                     return element ? parseInt(element.textContent) || 0 : 0;
@@ -858,15 +954,12 @@ function convertToTableView(users) {
     const reportsList = document.querySelector('#user-stats-tab .reports-list');
     if (!reportsList || !users) return;
 
-    // Создаем контейнер для таблицы
     const tableContainer = document.createElement('div');
     tableContainer.className = 'table-container';
     
-    // Создаем таблицу
     const table = document.createElement('table');
     table.className = 'exported-table';
     
-    // Создаем заголовок таблицы
     const thead = document.createElement('thead');
     thead.innerHTML = `
         <tr>
@@ -886,7 +979,6 @@ function convertToTableView(users) {
     `;
     table.appendChild(thead);
     
-    // Заполняем таблицу данными
     const tbody = document.createElement('tbody');
     
     users.forEach(user => {
@@ -915,11 +1007,9 @@ function convertToTableView(users) {
     table.appendChild(tbody);
     tableContainer.appendChild(table);
     
-    // Очищаем контейнер и добавляем новое содержимое
     reportsList.innerHTML = '';
     reportsList.appendChild(tableContainer);
     
-    // Назначаем обработчики для кнопок редактирования
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -939,7 +1029,6 @@ async function initRewardSettingsModal() {
         document.getElementById('delay-penalty').value = settings.delay_penalty;
     }
     
-    // Сохранение настроек
     modal.querySelector('.save-settings-btn').addEventListener('click', async () => {
         const updatedSettings = {
             complaint_reward: parseInt(document.getElementById('complaint-reward').value),

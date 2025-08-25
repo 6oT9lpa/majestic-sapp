@@ -38,6 +38,32 @@ class ReportService:
         if not USER_STATS_FILE.exists():
             with open(USER_STATS_FILE, 'w') as f:
                 json.dump({}, f)
+    
+    async def _load_all_complaints_from_files(self) -> List[Dict]:
+        """Загрузка всех жалоб из всех файлов в формате ddmmyyyy_reports.json"""
+        all_complaints = []
+        
+        try:
+            # Ищем все файлы с паттерном ddmmyyyy_reports.json
+            pattern = re.compile(r'\d{8}_reports\.json$')
+            json_files = [f for f in os.listdir(self.data_dir) if pattern.match(f)]
+            
+            for filename in json_files:
+                file_path = self.data_dir / filename
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        file_data = json.load(f)
+                        if isinstance(file_data, list):
+                            all_complaints.extend(file_data)
+                except Exception as e:
+                    print(f"Ошибка при чтении файла {filename}: {str(e)}")
+                    continue
+            
+            return all_complaints
+            
+        except Exception as e:
+            print(f"Ошибка при загрузке жалоб из файлов: {str(e)}")
+            return []
         
     async def get_complaints(
         self,
@@ -49,17 +75,15 @@ class ReportService:
     ) -> Dict:
         """Получение жалоб с фильтрацией из нового формата JSON"""
         try:
-            json_file = self.data_dir / "complaints_data.json"
-            if not json_file.exists():
+            all_complaints = await self._load_all_complaints_from_files()
+        
+            if not all_complaints:
                 return {
                     "complaints": [],
                     "total": 0,
                     "page": page,
                     "per_page": per_page
                 }
-
-            with open(json_file, "r", encoding="utf-8") as f:
-                all_complaints = json.load(f)
 
             if status != "all":
                 all_complaints = [c for c in all_complaints if c.get("status") == status]
@@ -257,7 +281,6 @@ class ReportService:
             for user in standard_stats:
                 username = user['username']
                 if username in custom_stats:
-                    # Обновляем только разрешенные поля
                     updated_user = {
                         'username': username,
                         'server': custom_stats[username].get('server', user.get('server', "Не указан")),
@@ -277,11 +300,9 @@ class ReportService:
                     }
                     merged_stats.append(updated_user)
                 else:
-                    # Добавляем поле server со значением по умолчанию, если его нет в стандартной статистике
                     user['server'] = user.get('server', "Не указан")
                     merged_stats.append(user)
             
-            # Сортировка и пагинация
             merged_stats.sort(key=lambda x: x["total"], reverse=True)
             total = len(merged_stats)
             start = (page - 1) * per_page
@@ -310,16 +331,13 @@ class ReportService:
             start_date = datetime(year, month, 1)
             end_date = datetime(year, month + 1, 1) - timedelta(days=1) if month < 12 else datetime(year + 1, 1, 1) - timedelta(days=1)
 
-            # Получаем список всех дней в месяце
             days_in_month = (end_date - start_date).days + 1
             labels = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') 
                     for i in range(days_in_month)]
 
-            # 1. Получаем пользователей из БД и их активность (обращения)
             db_users = set()
             db_activity = defaultdict(lambda: defaultdict(int))
             
-            # Запрос для получения обращений из БД
             query = select(
                 User.username,
                 func.date(Appeal.created_at).label("date"),
@@ -344,49 +362,41 @@ class ReportService:
                 count = row[2]
                 db_users.add(username)
                 db_activity[username][date.strftime('%Y-%m-%d')] = count
-
-            # 2. Получаем пользователей из файла парсинга и их активность (жалобы)
+                
             file_users = set()
             file_activity = defaultdict(lambda: defaultdict(int))
             
-            json_file = self.data_dir / "complaints_data.json"
-            if json_file.exists():
-                with open(json_file, "r", encoding="utf-8") as f:
-                    parsed_data = json.load(f)
-                
-                for complaint in parsed_data:
-                    if not complaint.get('staff'):
-                        continue
-                        
-                    try:
-                        date_obj = datetime.strptime(
-                            complaint["startDate"], 
-                            "%Y-%m-%dT%H:%M:%S%z"
-                        ).date()
-                        date_str = date_obj.strftime('%Y-%m-%d')
-                        
-                        if start_date.date() <= date_obj <= end_date.date():
-                            username = complaint['staff']
-                            file_users.add(username)
-                            file_activity[username][date_str] += 1
-                    except Exception as e:
-                        print(f"Ошибка обработки жалобы: {e}")
-                        continue
+            all_complaints = await self._load_all_complaints_from_files()
+        
+            for complaint in all_complaints:
+                if not complaint.get('staff'):
+                    continue
+                    
+                try:
+                    date_obj = datetime.strptime(
+                        complaint["startDate"], 
+                        "%Y-%m-%dT%H:%M:%S%z"
+                    ).date()
+                    date_str = date_obj.strftime('%Y-%m-%d')
+                    
+                    if start_date.date() <= date_obj <= end_date.date():
+                        username = complaint['staff']
+                        file_users.add(username)
+                        file_activity[username][date_str] += 1
+                except Exception as e:
+                    print(f"Ошибка обработки жалобы: {e}")
+                    continue
 
-            # 3. Объединяем пользователей из обоих источников
             all_users = db_users.union(file_users)
             
-            # 4. Формируем данные для графика
             datasets = []
             for username in all_users:
-                # Объединяем активность из БД и файла
                 combined_data = []
                 for date_str in labels:
                     db_count = db_activity.get(username, {}).get(date_str, 0)
                     file_count = file_activity.get(username, {}).get(date_str, 0)
                     combined_data.append(db_count + file_count)
                 
-                # Добавляем только если есть какая-то активность
                 if sum(combined_data) > 0:
                     datasets.append({
                         'label': username,
@@ -607,13 +617,7 @@ class ReportService:
             APPEAL_REWARD = settings["appeal_reward"]  # Вознаграждение за закрытое обращение
             DELAY_PENALTY = settings["delay_penalty"]  # Штраф за просрочку
             
-            # Загружаем данные из JSON файла жалоб
-            json_file = self.data_dir / "complaints_data.json"
-            if not json_file.exists():
-                return []
-
-            with open(json_file, "r", encoding="utf-8") as f:
-                all_complaints = json.load(f)
+            all_complaints = await self._load_all_complaints_from_files()
 
             # Группируем по администраторам
             admin_stats = defaultdict(lambda: {

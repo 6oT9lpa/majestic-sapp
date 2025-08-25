@@ -12,9 +12,9 @@ from fastapi import WebSocket, WebSocketDisconnect, Request, HTTPException, File
 from fastapi.responses import FileResponse
 from fastapi import APIRouter, Depends
 from http.cookies import SimpleCookie
-from typing import Dict, List, Optional
+from typing import Dict, List
 from pathlib import Path
-import uuid, json, asyncio
+import uuid, json
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 STORAGE_PATH = PROJECT_ROOT / "storage/files"
@@ -65,7 +65,7 @@ async def websocket_endpoint(
             return
         
         if is_moderator:
-            if appeal["assigned_moder_id"] != user["id"]: 
+            if is_moderator and appeal.get("assigned_moder_id") != user["id"] and appeal["status"] == "in_progress":
                 allowed_types = AppealPermissionChecker.get_allowed_appeal_types(user)
                 if appeal["type"] not in allowed_types:
                     await websocket.close(code=1008, reason="Нет прав на этот тип обращений")
@@ -196,6 +196,88 @@ async def websocket_endpoint(
             await websocket.close(code=1011, reason=f"Internal server error {str(e)}")
         finally:
             manager.disconnect(appeal_id)
+
+@router.websocket("/appeals-list-ws")
+async def appeals_list_websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
+    try:
+        cookie_header = websocket.headers.get("cookie")
+        if not cookie_header:
+            await websocket.close(code=1008, reason="Токен не найден")
+            return
+            
+        cookies = SimpleCookie()
+        cookies.load(cookie_header)
+        token = cookies.get("access_token")
+        if not token:
+            await websocket.close(code=1008, reason="Токен не найден")
+            return
+
+        user = await get_current_user_websoket(token.value)
+        if not user:
+            await websocket.close(code=1008, reason="Пользователь не найден")
+            return
+        
+        await manager.connect_appeal_list(websocket)
+        
+        # Отправляем текущие счетчики при подключении
+        counters = await get_appeals_counters(user["id"])
+        await websocket.send_json({
+            "type": "counters_update",
+            "counters": counters
+        })
+        
+        try:
+            while True:
+                # Обрабатываем как текст, а не JSON
+                data = await websocket.receive_text()
+                if data == "ping":
+                    # Отправляем pong как текст, а не JSON
+                    await websocket.send_text("pong")
+                    
+        except WebSocketDisconnect:
+            manager.disconnect_appeal_list(websocket)
+            
+    except Exception as e:
+        try:
+            await websocket.close(code=1011, reason=f"Internal server error {str(e)}")
+        finally:
+            manager.disconnect_appeal_list(websocket)
+
+async def get_appeals_counters(user_id: uuid.UUID) -> dict:
+    """Получить актуальные счетчики обращений"""
+    from src.database import get_session
+    from src.models.appeal_model import Appeal, AppealAssignment
+    from sqlalchemy import select, func, and_
+    
+    async for session in get_session():
+        # Счетчик необработанных обращений
+        pending_count = await session.execute(
+            select(func.count()).select_from(Appeal).where(
+                Appeal.status == "pending"
+            )
+        )
+        pending = pending_count.scalar() or 0
+        
+        # Счетчик обращений, назначенных текущему пользователю
+        user_assigned_count = await session.execute(
+            select(func.count()).select_from(AppealAssignment)
+            .join(Appeal, AppealAssignment.appeal_id == Appeal.id)
+            .where(
+                and_(
+                    AppealAssignment.user_id == user_id,
+                    AppealAssignment.released_at == None,
+                    Appeal.status.in_(["pending", "in_progress"])
+                )
+            )
+        )
+        user_assigned = user_assigned_count.scalar() or 0
+        
+        return {
+            "pending": pending,
+            "user_assigned": user_assigned
+        }
 
 @router.post("/appeals/{appeal_id}/upload", dependencies=[Depends(RoleLevelChecker(PermissionLevel.USER))])
 async def upload_files(
@@ -379,19 +461,22 @@ async def check_appeal_access(
     if user["id"] == appeal["user_id"]:
         return {"detail": "Доступ разрешен"}
     
-    if appeal["status"] == "in_progress":
-        if appeal.get("assigned_moder_id") == user["id"]:
-            return {"detail": "Доступ разрешен"}
-        
-        if not SecurityUtils.has_permission_by_name(user, "view_active_chats"):
-            raise HTTPException(status_code=403, detail="Обращение назначено другому пользователю")
-
+    if appeal.get("assigned_moder_id") == user["id"]:
+        return {"detail": "Доступ разрешен"}
+    
+    if not SecurityUtils.has_role_or_higher(user, PermissionLevel.JUNIOR_MODERATOR):
+        raise HTTPException(status_code=403, detail="Доступ запрещен")
+    
     allowed_types = AppealPermissionChecker.get_allowed_appeal_types(user)
     if appeal["type"] not in allowed_types:
         raise HTTPException(status_code=403, detail="Нет прав для просмотра этого обращения")
-
+    
     allowed_statuses = AppealPermissionChecker.get_allowed_statuses(user, appeal["type"])
     if appeal["status"] not in allowed_statuses:
         raise HTTPException(status_code=403, detail="Нет прав для просмотра обращения с этим статусом")
+    
+    if appeal["status"] == "in_progress":
+        if not SecurityUtils.has_permission_by_name(user, "view_active_chats"):
+            raise HTTPException(status_code=403, detail="Обращение назначено другому пользователю")
 
     return {"detail": "Доступ разрешен"}

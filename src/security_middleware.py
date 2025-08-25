@@ -89,33 +89,36 @@ class AppealPermissionChecker(BasePermissionChecker):
             allowed_types.append("complaint")
         if SecurityUtils.has_permission_by_name(user, "respond_amnesty_requests"):
             allowed_types.append("amnesty")
-            
+        
+        if SecurityUtils.has_permission_by_name(user, "view_active_chats"):
+            return ["help", "complaint", "amnesty"]
+        
         return allowed_types
 
     @staticmethod
     def get_allowed_statuses(user: dict, appeal_type: str) -> List[str]:
         allowed_statuses = []
         
-        if appeal_type == "help":
-            if SecurityUtils.has_permission_by_name(user, "respond_support_tickets"):
-                allowed_statuses.append("pending")
-                
-            if SecurityUtils.has_permission_by_name(user, "view_active_chats"):
-                allowed_statuses.extend(["pending", "in_progress"])
-        
-        elif appeal_type == "complaint":
-            if SecurityUtils.has_permission_by_name(user, "respond_moderation_complaints"):
-                allowed_statuses.append("pending")
-                
-            if SecurityUtils.has_permission_by_name(user, "view_active_chats"):
-                allowed_statuses.extend(["pending", "in_progress"])
-        
-        elif appeal_type == "amnesty":
-            if SecurityUtils.has_permission_by_name(user, "respond_amnesty_requests"):
-                allowed_statuses.append("pending")
-                
-            if SecurityUtils.has_permission_by_name(user, "view_active_chats"):
-                allowed_statuses.extend(["pending", "in_progress"])
+        if appeal_type == "help" and SecurityUtils.has_permission_by_name(user, "respond_support_tickets"):
+            allowed_statuses.append("pending")
+        elif appeal_type == "complaint" and SecurityUtils.has_permission_by_name(user, "respond_moderation_complaints"):
+            allowed_statuses.append("pending")
+        elif appeal_type == "amnesty" and SecurityUtils.has_permission_by_name(user, "respond_amnesty_requests"):
+            allowed_statuses.append("pending")
+            
+        if SecurityUtils.has_permission_by_name(user, "view_active_chats"):
+            allowed_statuses.extend(["pending", "in_progress"])
         
         allowed_statuses.extend(["resolved", "rejected"])
         return list(set(allowed_statuses))
+    
+    @staticmethod
+    def can_view_appeal(user: dict, appeal_type: str, appeal_status: str) -> bool:
+        """Проверяет, может ли пользователь видеть обращение данного типа и статуса"""
+        allowed_types = AppealPermissionChecker.get_allowed_appeal_types(user)
+        
+        if appeal_type not in allowed_types:
+            return False
+        
+        allowed_statuses = AppealPermissionChecker.get_allowed_statuses(user, appeal_type)
+        return appeal_status in allowed_statuses

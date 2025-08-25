@@ -7,12 +7,12 @@
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/roboto/roboto.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/root.css?v=0.0.4') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/dashboard.css?v=0.0.13') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/dashboard.css?v=0.0.14') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/modal.css?v=0.0.4') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/navbar.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/messanger.css?v=0.0.12') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.15') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.18') }}">
 </head>
 <body>
     <div class="dashboard-container">
@@ -206,6 +206,28 @@
         </div>
     </div>
 
+    <div class="counters-container">
+        <div class="counter" id="pending-counter">
+            <div class="counter-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="counter-content">
+                <span class="counter-value" id="pending-counter-value">0</span>
+                <span class="counter-label">Ожидают обработки</span>
+            </div>
+        </div>
+        
+        <div class="counter" id="assigned-counter">
+            <div class="counter-icon">
+                <i class="fas fa-user-check"></i>
+            </div>
+            <div class="counter-content">
+                <span class="counter-value" id="assigned-counter-value">0</span>
+                <span class="counter-label">Мои обращения</span>
+            </div>
+        </div>
+    </div>
+
     <script>
         const currentUser = {{ user | tojson | safe }};
     </script>
@@ -213,6 +235,6 @@
     <!-- Подключение скриптов -->
     <script src="{{ url_for('static', path='scripts/root.js?v=0.0.5') }}"></script>
     <script src="{{ url_for('static', path='scripts/messanger.js?v=0.0.60') }}"></script>
-    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.49') }}"></script>
+    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.60') }}"></script>
 </body>
 </html>

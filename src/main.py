@@ -5,6 +5,8 @@ from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from src.api.main_routes import router as main_router
 from src.api.auth_route import router as auth_router
@@ -18,11 +20,25 @@ from src.database import init_db
 from src.scripts.init_roles import init_roles
 from src.scripts.parser_complaint import run_parser_background, run_parser_for_date
 
+class ProxyHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        x_forwarded_proto = request.headers.get('x-forwarded-proto')
+        x_forwarded_host = request.headers.get('x-forwarded-host')
+        
+        if x_forwarded_proto == 'https':
+            request.scope["scheme"] = "https"
+        
+        if x_forwarded_host:
+            request.scope["host"] = x_forwarded_host
+            
+        response = await call_next(request)
+        return response
+
 def get_application() -> FastAPI:
     application = FastAPI(
         title='FastApi & Majestic',
-        debug=True,
-        version='beta 0.01'
+        debug=False,
+        version='0.01'
     )
     
     application.include_router(main_router, tags=['main'])
@@ -33,6 +49,8 @@ def get_application() -> FastAPI:
     application.include_router(websoket_router, prefix="/messanger", tags=["messanger"])
     application.include_router(report_router, prefix="/dashboard/admin/reports", tags=["reporting"])
 
+    
+    application.add_middleware(ProxyHeadersMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -40,6 +58,10 @@ def get_application() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
         expose_headers=["*"]
+    )
+    application.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"]
     )
     
     application.mount("/static", StaticFiles(directory="static", html=True), name="static")

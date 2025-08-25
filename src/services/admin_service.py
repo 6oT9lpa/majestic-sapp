@@ -31,7 +31,8 @@ class AdminService:
         assigned_to_me: Optional[bool] = False,
         page: int = 1,
         per_page: int = 20,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        allowed_types: Optional[List[str]] = None 
     ) -> dict:
         """Получить список обращений с фильтрацией"""
         offset = (page - 1) * per_page
@@ -39,7 +40,10 @@ class AdminService:
         # Основной запрос для получения данных
         query = select(Appeal).where(Appeal.status.in_(status))
         
-        if type:
+        if allowed_types:
+            allowed_type_enums = [AppealType(t) for t in allowed_types]
+            query = query.where(Appeal.type.in_(allowed_type_enums))
+        elif type:
             query = query.where(Appeal.type == type)
         
         if assigned_to_me:
@@ -707,6 +711,24 @@ class AdminService:
         await self.session.commit()
         
         return True
+    
+    async def get_moderators_list(self) -> List[dict]:
+        """Получить список всех модераторов"""
+        result = await self.session.execute(
+            select(User)
+            .join(Role, User.role_id == Role.id)
+            .where(Role.level >= PermissionLevel.JUNIOR_MODERATOR)
+            .order_by(Role.level.desc(), User.username)
+        )
+        
+        moderators = result.unique().scalars().all()
+        
+        return [{
+            "id": str(moderator.id),
+            "username": moderator.username,
+            "role_level": moderator.role.level,
+            "role_name": moderator.role.name
+        } for moderator in moderators]
     
 async def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
     return AdminService(session)

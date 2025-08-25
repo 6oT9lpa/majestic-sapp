@@ -1,17 +1,19 @@
 from datetime import datetime
-from turtle import st
-import uuid
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, BackgroundTasks
+from pathlib import Path
+import json
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, Form, Request
 from fastapi.templating import Jinja2Templates
 from typing import Dict, Optional, List
 
 from src.models.appeal_model import AppealStatus, AppealType
 from src.security_middleware import RoleLevelChecker, PermissionLevel
 from src.services.auth_handler import get_current_user
-from src.scripts.parser_complaint import run_parser_background
 from src.services.reports_service import ReportService, get_report_service
 from src.schemas.user_stats_schema import UserStatsResponse, UserStatsUpdate
 from src.utils.log import log_action, ActionType
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+COMPLAINT_DIR = PROJECT_ROOT / "storage/complaint"
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -184,3 +186,60 @@ async def update_reward_settings(
             )
     
     return await report_service.update_reward_settings(settings_data)
+
+@router.post("/upload-reports", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MODERATOR_SUPERVISOR))])
+async def upload_reports(
+    request: Request,
+    reports_file: UploadFile,
+    file_content: str = Form(None),
+    report_service: ReportService = Depends(get_report_service)
+):
+    """Загрузка JSON файла с отчетами"""
+    try:
+        user = await get_current_user(request)
+        
+        if not reports_file.filename.lower().endswith('.json'):
+            raise HTTPException(status_code=400, detail="Файл должен быть в формате JSON")
+        
+        if file_content:
+            content = file_content
+        else:
+            content = await reports_file.read()
+            content = content.decode('utf-8')
+        
+        try:
+            reports_data = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail=f"Некорректный JSON формат: {str(e)}")
+        
+        if not isinstance(reports_data, list):
+            raise HTTPException(status_code=400, detail="Файл должен содержать массив отчетов")
+        
+        if reports_data:
+            first_report = reports_data[0]
+            required_fields = ['staff', 'status', 'startDate', 'endDate', 'reportDate', 'link', 'report_id']
+            
+            for field in required_fields:
+                if field not in first_report:
+                    raise HTTPException(status_code=400, detail=f"Отсутствует обязательное поле: {field}")
+        
+        current_date = datetime.now().strftime("%d%m%Y")
+        filename = f"{current_date}_reports.json"
+        file_path = COMPLAINT_DIR / filename
+        
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(reports_data, f, indent=2, ensure_ascii=False)
+        
+        await log_action(
+            request=request,
+            action_type=ActionType.upload_reports,
+            action_data=f"Пользователь {user['username']} загрузил новые отчеты из файла {reports_file.filename}",
+            user_id=user["id"]
+        )
+        
+        return {"message": "Отчеты успешно загружены", "filename": filename}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при загрузке отчетов: {str(e)}")

@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/roboto/roboto.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/root.css?v=0.0.5') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/reports.css?v=0.0.14') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/dashboard.css?v=0.0.2') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/reports.css?v=0.0.18') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/dashboard.css?v=0.0.3') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/modal.css?v=0.0.4') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/navbar.css?v=0.0.4') }}">
 </head>
@@ -68,6 +68,17 @@
                                 </svg>
                                 Фильтры
                             </button>
+                            <div class="tooltip-container">
+                                <button class="primary-btn" id="upload-reports-btn" style="padding: 4px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                        <polyline points="17 8 12 3 7 8"></polyline>
+                                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                                    </svg>
+                                </button>
+                                <span class="tooltip-text">Загрузить отчеты из JSON</span>
+                            </div>
+                            <input type="file" id="reports-file-input" accept=".json" style="display: none;">
                             <div class="filters-panel" id="filters-panel">
                                 <div class="filter-group">
                                     <label class="filter-label">Статус</label>
@@ -328,8 +339,24 @@
         </div>
     </div>
 
+    <div id="confirmUploadModal" class="modal hidden confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение загрузки</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body"> 
+                <p class="confirmation-text">Вы уверены, что хотите загрузить новые отчеты? Это дополняет существующие данные.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn cancel-confirm-btn">Отмена</button>
+                <button class="primary-btn confirm-upload-btn">Да, загрузить</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="{{ url_for('static', path='scripts/root.js?v=0.0.4') }}"></script>
-    <script src="{{ url_for('static', path='scripts/reports.js?v=0.0.25') }}"></script>
+    <script src="{{ url_for('static', path='scripts/reports.js?v=0.0.26') }}"></script>
 </body>
 </html>
