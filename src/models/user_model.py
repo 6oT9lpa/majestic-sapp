@@ -251,3 +251,70 @@ class UserBan(Base):
     
     user = relationship("User", foreign_keys=[user_id])
     moderator = relationship("User", foreign_keys=[banned_by])
+    
+class MultiAccount(Base):
+    __tablename__ = "multi_accounts"
+    
+    main_account_url: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+    main_account_id: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False
+    )
+    main_account_name: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+    accounts_data: Mapped[Dict] = mapped_column(
+        JSON,
+        nullable=False
+    )
+    comment: Mapped[str] = mapped_column(
+        Text,
+        nullable=True
+    )
+    created_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("user.id")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now()
+    )
+
+class MultiAccountLog(Base):
+    __tablename__ = "multi_account_logs"
+    
+    multi_account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("multi_accounts.id"),
+        nullable=False
+    )
+    action_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False
+    )
+    action_details: Mapped[Dict] = mapped_column(
+        JSON,
+        nullable=False
+    )
+    changed_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),
+        nullable=False
+    )
+    changed_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now()
+    )
+    
+    user = relationship("User", foreign_keys=[changed_by])
+    multi_account = relationship("MultiAccount")
+    

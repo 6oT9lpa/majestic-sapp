@@ -1,15 +1,13 @@
-from calendar import c
 from fastapi import APIRouter, Depends, Request, HTTPException, Query, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.encoders import jsonable_encoder
 from typing import List, Optional
-from sqlalchemy import select, func, and_
+from pathlib import Path
 import json
 import uuid
 
 from src.utils.security import SecurityUtils
 from src.models.appeal_model import AppealStatus, AppealType
-from src.models.appeal_model import Appeal, AppealAssignment
 from src.security_middleware import RoleLevelChecker, AppealPermissionChecker, PermissionLevel
 from src.services.auth_handler import BackgroundTasks, get_current_user
 from src.services.admin_service import AdminService, get_admin_service
@@ -20,6 +18,10 @@ from src.services.messanger_service import MessangerService, get_messager_servic
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+STORAGE_PATH = PROJECT_ROOT / "storage/files"
+STORAGE_PATH.mkdir(parents=True, exist_ok=True)
 
 @router.get("/", dependencies=[Depends(RoleLevelChecker(PermissionLevel.JUNIOR_MODERATOR))])
 async def get_admin_dashboard(request: Request):
@@ -58,20 +60,16 @@ async def get_appeals(
             search=search
         )
 
-    # Получаем разрешенные типы обращений для пользователя
     allowed_types = AppealPermissionChecker.get_allowed_appeal_types(user)
     if not allowed_types:
         raise HTTPException(status_code=403, detail="Нет прав для просмотра обращений")
     
-    # Если указан конкретный тип, проверяем доступ
     if type and type.value not in allowed_types:
         raise HTTPException(status_code=403, detail=f"Нет прав для просмотра обращений типа {type.value}")
 
-    # Фильтрация по разрешенным статусам
     filtered_statuses = []
     for s in status:
         if type:
-            # Для конкретного типа проверяем разрешенные статусы
             allowed_for_type = AppealPermissionChecker.get_allowed_statuses(user, type.value)
         else:
             allowed_for_type = []
@@ -118,56 +116,59 @@ async def get_support_moderator(
     
     return moderator_info
 
-@router.get("/deleted-accounts", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
-async def get_deleted_accounts(
+@router.get("/multi-accounts", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
+async def get_multi_accounts(
     request: Request,
     page: int = 1,
     per_page: int = 20,
     admin_service: AdminService = Depends(get_admin_service)
 ):
-    """Получить список удаленных аккаунтов"""
-    return await admin_service.get_deleted_accounts(page=page, per_page=per_page)
+    """Получить список мультиаккаунтов"""
+    return await admin_service.get_multi_accounts(page=page, per_page=per_page)
 
-@router.post("/deleted-accounts", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
-async def add_deleted_accounts(
+@router.post("/multi-accounts", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
+async def add_multi_accounts(
     request: Request,
     main_account_url: str = Form(...),
-    deleted_accounts: str = Form(...), 
+    accounts: str = Form(...),
+    comment: Optional[str] = Form(None),
     admin_service: AdminService = Depends(get_admin_service)
 ):
-    """Добавить запись об удаленных аккаунтах"""
+    """Добавить запись о мультиаккаунтах"""
     
     try:
         # Валидация основной ссылки
         main_account = ForumUrlSchema(url=main_account_url)
         
-        # Валидация удаляемых аккаунтов
-        deleted_accounts_list = json.loads(deleted_accounts)
+        # Валидация аккаунтов
+        accounts_list = json.loads(accounts)
         validated_accounts = []
-        for account in deleted_accounts_list:
+        for account in accounts_list:
             validated = ForumUrlSchema(url=account['url'])
             validated_accounts.append({
                 "url": validated.url,
                 "name": validated.username,
-                "id": validated.user_id
+                "id": validated.user_id,
+                "type": account.get('type', 'multi')  # По умолчанию мультиаккаунт
             })
             
         user = await get_current_user(request)
         if not user:
             raise HTTPException(status_code=401, detail="Не авторизован")
         
-        await admin_service.add_deleted_accounts(
+        await admin_service.add_multi_accounts(
             main_account_url=main_account.url,
-            deleted_accounts=validated_accounts,
+            accounts=validated_accounts,
+            comment=comment,
             current_user=user
         )
         
         await log_action(
             request=request,
-            action_type=ActionType.add_account_deletion,
-            action_data = (
-                f"Пользователь {user['username']} добавил в лог удаленных аккаунтов "
-                f"ID ACCOUNT: {[acc['id'] for acc in validated_accounts]}"
+            action_type=ActionType.add_multi_account,
+            action_data=(
+                f"Пользователь {user['username']} добавил запись о мультиаккаунтах "
+                f"ID ACCOUNTS: {[acc['id'] for acc in validated_accounts]}"
             ),
             user_id=user["id"]
         )
@@ -177,6 +178,85 @@ async def add_deleted_accounts(
         raise HTTPException(status_code=400, detail=str(e))
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Некорректный формат данных")
+
+@router.get("/multi-accounts/{account_id}", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
+async def get_multi_account_details(
+    request: Request,
+    account_id: uuid.UUID,
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Получить детальную информацию о мультиаккаунте"""
+    return await admin_service.get_multi_account_details(account_id)
+
+@router.post("/multi-accounts/update-account-type", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
+async def update_account_type(
+    request: Request,
+    data: dict,
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Изменить тип аккаунта (мультиаккаунт/обход блокировки)"""
+    try:
+        user = await get_current_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="Не авторизован")
+        
+        await admin_service.update_account_type(
+            multi_account_id=uuid.UUID(data['multi_account_id']),
+            account_id=data['account_id'],
+            account_url=data['account_url'],
+            new_type=data['new_type'],
+            current_user=user
+        )
+        
+        await log_action(
+            request=request,
+            action_type=ActionType.multi_account_updated,
+            action_data={
+                "account_id": data['account_id'],
+                "account_url": data['account_url'],
+                "new_type": data['new_type']
+            },
+            user_id=user["id"]
+        )
+        
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/multi-accounts/set-main-account", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
+async def set_main_account(
+    request: Request,
+    data: dict,
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Установить новый основной аккаунт"""
+    try:
+        user = await get_current_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="Не авторизован")
+        
+        await admin_service.set_main_account(
+            multi_account_id=uuid.UUID(data['multi_account_id']),
+            new_main_account_id=data['new_main_account_id'],
+            new_main_account_url=data['new_main_account_url'],
+            new_main_account_name=data['new_main_account_name'],
+            current_user=user
+        )
+        
+        await log_action(
+            request=request,
+            action_type=ActionType.multi_account_updated,
+            action_data={
+                "action": "main_account_changed",
+                "new_main_account_id": data['new_main_account_id'],
+                "new_main_account_name": data['new_main_account_name']
+            },
+            user_id=user["id"]
+        )
+        
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/general", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MODERATOR_SUPERVISOR))])
 async def get_general(request: Request):

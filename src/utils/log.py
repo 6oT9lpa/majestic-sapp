@@ -26,6 +26,7 @@ class ActionType(str, Enum):
     username_change_request = "username_change_request"         # Запрос на смену ника +
     upload_reports = "upload_reports"                           # Загрузка отчетов +
     user_restored = "user_restored"                             # Восстановление пользователя +
+    multi_account_updated = "multi_account_updated"             # Обновление мультиаккаунта +
 
 async def log_action (
     request: Request,

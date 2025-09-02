@@ -450,6 +450,529 @@
     background: var(--status-rejected-border);
 }
 
+/* Стили для карточек мультиаккаунтов */
+.multi-account-card {
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.multi-account-card:hover {
+    border-color: var(--accent-color);
+    box-shadow: 0 4px 12px rgba(224, 1, 91, 0.1);
+}
+
+.multi-account-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.main-account {
+    flex: 1;
+    min-width: 200px;
+}
+
+.main-account-link {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+    display: block;
+    margin-top: 0.3rem;
+}
+
+.main-account-link:hover {
+    text-decoration: underline;
+}
+
+.accounts-count {
+    background: rgba(224, 1, 91, 0.1);
+    color: var(--accent-color);
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.account-comment-preview {
+    background: var(--second-background);
+    padding: 0.8rem;
+    border-radius: 6px;
+    margin: 0.8rem 0;
+    font-size: 0.9rem;
+    color: var(--second-text);
+    border-left: 3px solid var(--accent-color);
+}
+
+.multi-account-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.account-date {
+    font-size: 0.85rem;
+    color: var(--second-text);
+}
+
+.view-details-btn {
+    padding: 0.5rem 1rem;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 0.9rem;
+}
+
+.view-details-btn:hover {
+    background: #c00050;
+}
+
+/* Стили для редактирования аккаунтов */
+.account-edit-item {
+    display: grid;
+    grid-template-columns: 1fr 150px 40px;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.8rem;
+    padding: 0.8rem;
+    background: var(--second-background);
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+}
+
+.account-edit-item.main-account {
+    background: rgba(224, 1, 91, 0.05);
+    border-color: var(--accent-color);
+}
+
+.account-edit-input {
+    padding: 0.6rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    font-size: 0.9rem;
+}
+
+.account-edit-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.account-edit-select {
+    padding: 0.6rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.set-main-btn {
+    padding: 0.4rem 0.8rem;
+    background: transparent;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.set-main-btn:hover {
+    background: rgba(224, 1, 91, 0.1);
+}
+
+.set-main-btn.active {
+    background: var(--accent-color);
+    color: white;
+}
+
+.char-counter {
+    text-align: right;
+    font-size: 0.8rem;
+    color: var(--second-text);
+    margin-top: 0.3rem;
+}
+
+/* Стили для модального окна деталей мультиаккаунта */
+.large-modal {
+    max-width: 1200px;
+    width: 90%;
+}
+
+.multi-account-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 1rem;
+}
+
+.account-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.accounts-list-section,
+.comment-section,
+.logs-section {
+    background: var(--second-background);
+    padding: 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.accounts-list-section h3,
+.comment-section h3,
+.logs-section h3 {
+    margin-bottom: 1rem;
+    color: var(--primary-text);
+    font-size: 1.1rem;
+}
+
+.detailed-account-item {
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+    background: var(--primary-background);
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+}
+
+.account-main {
+    border-left: 4px solid var(--accent-color);
+    background: rgba(224, 1, 91, 0.05);
+}
+
+.account-type-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+}
+
+.type-multi {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.type-bypass {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+}
+
+.account-link {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+.account-link:hover {
+    text-decoration: underline;
+}
+
+#account-comment-edit {
+    width: 100%;
+    padding: 0.8rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    resize: vertical;
+    margin-bottom: 1rem;
+}
+
+.file-upload {
+    margin-bottom: 1rem;
+}
+
+.file-upload-label {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background: var(--accent-color);
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.file-upload-label:hover {
+    background: #c00050;
+}
+
+/* Стили для загруженных файлов */
+.uploaded-file {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--second-background);
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.uploaded-file img {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+.uploaded-file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.uploaded-file-name {
+    font-size: 0.9rem;
+    color: var(--primary-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uploaded-file-size {
+    font-size: 0.8rem;
+    color: var(--second-text);
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.file-action-btn {
+    padding: 0.3rem;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--second-text);
+    transition: color 0.2s;
+}
+
+.file-action-btn:hover {
+    color: var(--accent-color);
+}
+
+.remove-file {
+    color: var(--status-rejected-text);
+    cursor: pointer;
+}
+
+.logs-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-item {
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+    background: var(--primary-background);
+    border-radius: 5px;
+    border-left: 3px solid var(--accent-color);
+}
+
+.log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.log-type {
+    font-weight: 500;
+    color: var(--accent-color);
+}
+
+.log-date {
+    font-size: 0.8rem;
+    color: var(--second-text);
+}
+
+.log-details {
+    font-size: 0.9rem;
+    color: var(--second-text);
+}
+
+.log-user {
+    font-size: 0.8rem;
+    color: var(--second-text);
+    margin-top: 0.3rem;
+}
+
+/* Стили для формы добавления мультиаккаунтов */
+.account-input {
+    margin-bottom: 0.8rem;
+}
+
+.account-input-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 150px 40px;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.account-input:first-child .account-input-wrapper {
+    grid-template-columns: 1fr 150px;
+}
+
+.account-input:first-child .remove-account-btn {
+    display: none;
+}
+
+.account-url {
+    padding: 0.6rem;
+    background: var(--second-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    font-size: 0.9rem;
+}
+
+.account-url:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.main-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    background: var(--status-pending-bg);
+    color: var(--status-pending-text);
+}
+
+.account-type {
+    padding: 0.6rem;
+    background: var(--second-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.account-type:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.remove-account-btn {
+    background: var(--status-rejected-bg);
+    color: var(--status-rejected-text);
+    border: 1px solid var(--status-rejected-border);
+    border-radius: 5px;
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.remove-account-btn:hover {
+    background: var(--status-rejected-border);
+}
+
+div#accounts-container {
+    max-height: 15rem;
+    overflow: hidden;
+    overflow-y: auto;
+}
+
+/* Стили для кнопки "Сделать основным" */
+.set-main-btn {
+    padding: 0.4rem 0.8rem;
+    background: transparent;
+    color: var(--accent-color);
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    margin-left: 0.5rem;
+}
+
+.set-main-btn:hover {
+    background: rgba(224, 1, 91, 0.1);
+}
+
+.set-main-btn.active {
+    background: var(--accent-color);
+    color: white;
+    cursor: default;
+}
+
+/* Стили для загруженных файлов */
+.uploaded-file {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--second-background);
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border-color);
+}
+
+.uploaded-file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.uploaded-file-name {
+    font-size: 0.9rem;
+    color: var(--primary-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.uploaded-file-size {
+    font-size: 0.8rem;
+    color: var(--second-text);
+}
+
+.remove-file {
+    color: var(--status-rejected-text);
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0.3rem;
+}
+
+.remove-file:hover {
+    color: var(--status-rejected-border);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .header-actions {
@@ -461,12 +984,45 @@
     .filters-dropdown {
         width: 100%;
     }
+
+    .multi-account-details {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .large-modal {
+        width: 95%;
+        margin: 1rem;
+    }
+
+    .account-input-wrapper {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .account-input:first-child .account-input-wrapper {
+        grid-template-columns: 1fr;
+    }
+    
+    .remove-account-btn {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
 }
 
 @media (max-width: 1200px) {
     .dashboard-content.chat-open {
         display: flex;
         flex-direction: column;
+    }
+
+    .account-input {
+        flex-direction: column;
+    }
+    
+    .account-input .account-type {
+        width: 100%;
+        margin: 0.5rem 0;
     }
 }
 
@@ -477,7 +1033,7 @@
     gap: 0.8rem;
     margin-bottom: 1rem;
     flex-wrap: wrap;
-    z-index: 9999;
+    z-index: 100;
     bottom: 0;
     right: 1rem;
 }

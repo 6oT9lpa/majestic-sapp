@@ -1,6 +1,8 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import joinedload
+from urllib.parse import urlparse
 from sqlalchemy import  and_, func, or_, cast, String
 from typing import List, Optional, Dict
 from fastapi import BackgroundTasks
@@ -8,7 +10,7 @@ import uuid
 
 from src.services.email_service import send_restoration_email_in_background
 from src.database import get_session
-from src.models.user_model import SupportAssignment, User, DeletedAccount, UserHistory, UserRequest, UserBan, UserRequestType
+from src.models.user_model import  SupportAssignment, User, MultiAccountLog, MultiAccount, UserHistory, UserRequest, UserBan, UserRequestType
 from src.models.appeal_model import (
     Appeal,
     AppealStatus,
@@ -232,22 +234,22 @@ class AdminService:
             ]
         }
 
-    async def get_deleted_accounts(
+    async def get_multi_accounts(
         self,
         page: int = 1,
         per_page: int = 20
     ) -> dict:
-        """Получить список удаленных аккаунтов"""
+        """Получить список мультиаккаунтов"""
         offset = (page - 1) * per_page
         
-        query = select(DeletedAccount)
+        query = select(MultiAccount)
         
         count_query = select(func.count()).select_from(query)
         total_result = await self.session.execute(count_query)
         total = total_result.scalar()
         
         result = await self.session.execute(
-            query.order_by(DeletedAccount.created_at.desc())
+            query.order_by(MultiAccount.created_at.desc())
             .offset(offset)
             .limit(per_page)
         )
@@ -263,8 +265,10 @@ class AdminService:
                     "id": account.main_account_id,
                     "name": account.main_account_name
                 },
-                "deleted_accounts": account.deleted_accounts_data,
-                "created_at": account.created_at.isoformat()
+                "accounts_count": len(account.accounts_data) + 1,
+                "comment_preview": account.comment[:100] + "..." if account.comment and len(account.comment) > 100 else account.comment,
+                "created_at": account.created_at.isoformat(),
+                "created_by": str(account.created_by)
             })
         
         return {
@@ -275,19 +279,25 @@ class AdminService:
             "total_pages": (total + per_page - 1) // per_page
         }
         
-    async def add_deleted_accounts(
+    async def add_multi_accounts(
         self,
         main_account_url: str,
-        deleted_accounts: List[Dict],
+        accounts: List[Dict],
+        comment: Optional[str],
         current_user: Dict
-    ) -> DeletedAccount:
-        """Добавить запись об удаленных аккаунтах"""
+    ) -> MultiAccount:
+        """Добавить запись о мультиаккаунтах"""
         
-        new_account = DeletedAccount(
+        path = urlparse(main_account_url).path
+        last_part = path.strip("/").split("/")[-1]
+        name_, id_ = last_part.split(".")
+        
+        new_account = MultiAccount(
             main_account_url=main_account_url,
-            main_account_id=deleted_accounts[0]['id'], 
-            main_account_name=deleted_accounts[0]['name'],  
-            deleted_accounts_data=deleted_accounts,
+            main_account_id=int(id_),
+            main_account_name=name_,
+            accounts_data=accounts,
+            comment=comment,
             created_by=current_user["id"]
         )
         
@@ -295,7 +305,176 @@ class AdminService:
         await self.session.commit()
         await self.session.refresh(new_account)
         
+        log = MultiAccountLog(
+            multi_account_id=new_account.id,
+            action_type="created",
+            action_details={
+                "main_account": main_account_url,
+                "accounts_count": len(accounts),
+                "comment": comment
+            },
+            changed_by=current_user["id"]
+        )
+        self.session.add(log)
+        await self.session.commit()
+        
         return new_account
+    
+    async def get_multi_account_details(self, account_id: uuid.UUID) -> dict:
+        """Получить детальную информацию о мультиаккаунте"""
+        account = await self.session.get(MultiAccount, account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+        
+        # Получаем логи
+        logs_result = await self.session.execute(
+            select(MultiAccountLog)
+            .options(joinedload(MultiAccountLog.user)) 
+            .where(MultiAccountLog.multi_account_id == account_id)
+            .order_by(MultiAccountLog.changed_at.desc())
+        )
+        logs = logs_result.unique().scalars().all()
+    
+        return {
+            "account": {
+                "id": str(account.id),
+                "main_account": {
+                    "url": account.main_account_url,
+                    "id": account.main_account_id,
+                    "name": account.main_account_name
+                },
+                "accounts": account.accounts_data,
+                "comment": account.comment,
+                "created_at": account.created_at.isoformat(),
+                "created_by": str(account.created_by)
+            },
+            "logs": [{
+                "id": str(log.id),
+                "action_type": log.action_type,
+                "action_details": log.action_details,
+                "changed_by": str(log.changed_by),
+                "changed_at": log.changed_at.isoformat(),
+                "user_name": log.user.username if log.user else "Unknown"
+            } for log in logs],
+        }
+
+    async def update_account_type(
+        self,
+        multi_account_id: uuid.UUID,
+        account_id: int,
+        account_url: str,
+        new_type: str,
+        current_user: Dict
+    ):
+        """Изменить тип аккаунта"""
+        account = await self.session.get(MultiAccount, multi_account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+        
+        # Проверяем, что аккаунт существует в списке
+        account_found = False
+        updated_accounts = []
+        
+        for acc in account.accounts_data:
+            if acc.get('id') == account_id:
+                acc['type'] = new_type
+                account_found = True
+            updated_accounts.append(acc)
+        
+        if not account_found:
+            # Проверяем, не является ли это основным аккаунтом
+            if account.main_account_id == account_id:
+                return
+            raise HTTPException(status_code=404, detail="Аккаунт не найден в списке")
+        
+        account.accounts_data = updated_accounts
+        account.updated_at = func.now()
+        
+        self.session.add(account)
+        
+        # Добавляем запись в лог
+        log = MultiAccountLog(
+            multi_account_id=multi_account_id,
+            action_type="account_type_changed",
+            action_details={
+                "account_id": account_id,
+                "account_url": account_url,
+                "new_type": new_type
+            },
+            changed_by=current_user["id"]
+        )
+        self.session.add(log)
+        
+        await self.session.commit()
+
+    async def set_main_account(
+        self,
+        multi_account_id: uuid.UUID,
+        new_main_account_id: int,
+        new_main_account_url: str,
+        new_main_account_name: str,
+        current_user: Dict
+    ):
+        """Установить новый основной аккаунт"""
+        account = await self.session.get(MultiAccount, multi_account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+        
+        # Находим информацию о новом основном аккаунте
+        new_main_account = None
+        updated_accounts = []
+        account_found = False
+        
+        for acc in account.accounts_data:
+            if acc.get('id') == new_main_account_id:
+                new_main_account = acc
+                account_found = True
+            else:
+                updated_accounts.append(acc)
+        
+        if not account_found:
+            # Проверяем, не является ли это текущим основным аккаунтом
+            if account.main_account_id == new_main_account_id:
+                raise HTTPException(status_code=400, detail="Аккаунт уже является основным")
+            raise HTTPException(status_code=404, detail="Аккаунт не найден в списке")
+        
+        # Добавляем старый основной аккаунт в список
+        old_main_account = {
+            'url': account.main_account_url,
+            'name': account.main_account_name,
+            'id': account.main_account_id,
+            'type': 'multi'  # По умолчанию
+        }
+        updated_accounts.append(old_main_account)
+        
+        # Обновляем данные
+        account.main_account_url = new_main_account_url
+        account.main_account_id = new_main_account_id
+        account.main_account_name = new_main_account_name
+        account.accounts_data = updated_accounts
+        account.updated_at = func.now()
+        
+        self.session.add(account)
+        
+        # Добавляем запись в лог
+        log = MultiAccountLog(
+            multi_account_id=multi_account_id,
+            action_type="main_account_changed",
+            action_details={
+                "old_main_account": {
+                    "id": old_main_account['id'],
+                    "name": old_main_account['name']
+                },
+                "new_main_account": {
+                    "id": new_main_account_id,
+                    "name": new_main_account_name
+                }
+            },
+            changed_by=current_user["id"]
+        )
+        self.session.add(log)
+        
+        await self.session.commit()
     
     async def get_users(
         self,
@@ -765,11 +944,10 @@ class AdminService:
         original_email = user.email
         original_username = user.username
         
-        # Генерируем короткое имя для удаленного пользователя
         short_id = str(user.id)[:8]
         user.username = f"deleted_{short_id}"
         
-        user.password_hash = "deleted"
+        user.hash_pasw = "deleted"
         
         history = UserHistory(
             user_id=user_id,

@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/navbar.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/messanger.css?v=0.0.13') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.21') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.32') }}">
 </head>
 <body>
     <div class="dashboard-container">
@@ -32,7 +32,7 @@
                     </div>
                 </div>
                 {% if user["role"] and user["role"]["level"] >= 4 %}
-                    <button class="tab-btn" data-tab="deleted-accounts">Удаленные аккаунты</button>
+                    <button class="tab-btn" data-tab="multi-accounts">Мультиаккаунты</button>
                 {% endif %}
 
                 {% if user["role"] and user["role"]["level"] >= 5 %}
@@ -153,17 +153,17 @@
             </div>
 
             <!-- Вкладка учета удаленных аккаунтов -->  
-            <div class="tab-content" id="deleted-accounts-tab">
+            <div class="tab-content" id="multi-accounts-tab">
                 <div class="appeals-container">
                     <div class="appeals-header">
-                        <h2>Учет удаленных аккаунтов</h2>
+                        <h2>Мультиаккаунты</h2>
                         <div class="header-actions">
-                            <button class="primary-btn" id="add-deleted-account-btn">
+                            <button class="primary-btn" id="add-multi-account-btn">
                                 <i class="fas fa-plus"></i> Добавить
                             </button>
                         </div>
                     </div>
-                    <div class="appeals-list" id="deleted-accounts-list">
+                    <div class="appeals-list" id="multi-accounts-list">
                         <div class="loading-row">
                             <i class="fas fa-spinner fa-spin"></i> Загрузка данных...
                         </div>
@@ -175,11 +175,11 @@
         </div>
     </div>
 
-    <!-- Модальное окно для добавления удаленных аккаунтов -->
-    <div class="modal hidden" id="add-deleted-account-modal" style=" display: none;">
+    <!-- Модальное окно для добавления мультиаккаунтов -->
+    <div class="modal hidden" id="add-multi-account-modal" style="display: none;">
         <div class="modal-content">
             <span class="close-modal">&times;</span>
-            <h2>Добавить удаленные аккаунты</h2>
+            <h2>Добавить мультиаккаунты</h2>
             
             <div class="form-group">
                 <label for="main-account-url">Ссылка на основной аккаунт:</label>
@@ -187,16 +187,26 @@
             </div>
             
             <div class="form-group">
-                <label>Ссылки на удаляемые аккаунты:</label>
-                <div id="deleted-accounts-container">
-                    <div class="deleted-account-input">
-                        <input type="text" class="account-url" placeholder="https://forum.majestic-rp.ru/members/username.123456/">
-                        <button class="remove-account-btn"><i class="fas fa-times"></i></button>
+                <label>Аккаунты:</label>
+                <div id="accounts-container">
+                    <div class="account-input">
+                        <div class="account-input-wrapper">
+                            <input type="text" class="account-url" placeholder="https://forum.majestic-rp.ru/members/username.123456/">
+                            <select class="account-type">
+                                <option value="multi">Мультиаккаунт</option>
+                                <option value="bypass">Обход блокировки</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <button class="secondary-btn" id="add-another-account-btn">
                     <i class="fas fa-plus"></i> Добавить еще аккаунт
                 </button>
+            </div>
+            
+            <div class="form-group">
+                <label for="account-comment">Комментарий:</label>
+                <textarea id="account-comment" placeholder="Добавьте комментарий (до 500 символов)" maxlength="500" rows="3"></textarea>
             </div>
             
             <div class="modal-footer">
@@ -206,6 +216,100 @@
         </div>
     </div>
 
+    <!-- Модальное окно для просмотра деталей мультиаккаунта -->
+    <div class="modal hidden" id="view-multi-account-modal" style="display: none;">
+        <div class="modal-content large-modal">
+            <span class="close-modal">&times;</span>
+            <h2>Детали мультиаккаунта</h2>
+            <input type="hidden" id="edit-account-id" value="">
+            
+            <div class="multi-account-details">
+                <div class="account-content">
+                    <div class="accounts-list-section">
+                        <div class="section-header">
+                            <h3>Аккаунты</h3>
+                            <button class="primary-btn small-btn" id="add-account-btn">
+                                <i class="fas fa-plus"></i> Добавить аккаунт
+                            </button>
+                        </div>
+                        <div class="accounts-list" id="detailed-accounts-list">
+                            <!-- Список аккаунтов будет здесь -->
+                        </div>
+                    </div>
+                    
+                    <div class="comment-section">
+                        <h3>Комментарий</h3>
+                        <textarea id="account-comment-modal" placeholder="Комментарий..." maxlength="500" rows="5"></textarea>
+                    </div>
+                </div>
+                
+                <div class="logs-section">
+                    <h3>История изменений</h3>
+                    <div class="logs-list" id="account-logs-list">
+                        <!-- Логи будут здесь -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления нового аккаунта -->
+    <div class="modal hidden" id="add-account-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Добавить новый аккаунт</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="new-account-url">Ссылка на аккаунт:</label>
+                    <input type="text" id="new-account-url" 
+                        placeholder="https://forum.majestic-rp.ru/members/username.123456/">
+                </div>
+                <div class="form-group">
+                    <label for="new-account-type">Тип аккаунта:</label>
+                    <select id="new-account-type" class="modal-select">
+                        <option value="multi">Мультиаккаунт</option>
+                        <option value="bypass">Обход блокировки</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn cancel-add-btn">Отмена</button>
+                <button class="primary-btn confirm-add-btn">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальное окно для добавления нового мультиаккаунта -->
+    <div class="modal hidden" id="add-single-account-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Добавить новый аккаунт</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="new-account-url">Ссылка на аккаунт:</label>
+                    <input type="text" id="new-account-url" 
+                        placeholder="https://forum.majestic-rp.ru/members/username.123456/">
+                </div>
+                <div class="form-group">
+                    <label for="new-account-type">Тип аккаунта:</label>
+                    <select id="new-account-type" class="modal-select">
+                        <option value="multi">Мультиаккаунт</option>
+                        <option value="bypass">Обход блокировки</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn cancel-add-single-btn">Отмена</button>
+                <button class="primary-btn confirm-add-single-btn">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Информация о количестве обращений и в модерации у текущего пользователя -->
     <div class="counters-container">
         <div class="counter" id="pending-counter">
             <div class="counter-icon">
@@ -228,6 +332,7 @@
         </div>
     </div>
 
+    <!-- Модальное окно для подтверждения действия принудительно закрытия обращения -->
     <div id="confirmModal" class="modal hidden confirm-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -248,6 +353,7 @@
         </div>
     </div>
 
+    <!-- Модальное окно для подтверждения действия принудительно назначения -->
     <div id="reassignModal" class="modal hidden confirm-modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
@@ -277,6 +383,6 @@
     <!-- Подключение скриптов -->
     <script src="{{ url_for('static', path='scripts/root.js?v=0.0.5') }}"></script>
     <script src="{{ url_for('static', path='scripts/messanger.js?v=0.0.60') }}"></script>
-    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.68') }}"></script>
+    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.85') }}"></script>
 </body>
 </html>

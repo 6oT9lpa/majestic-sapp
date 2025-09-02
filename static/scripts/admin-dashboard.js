@@ -2,6 +2,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTabs('.tab-btn', '.tab-content', '.tab-indicator');
     await initFilters();
 
+    const savedTab = localStorage.getItem('activeAdminTab');
+    if (savedTab) {
+        const tabElement = document.querySelector(`[data-tab="${savedTab}"]`);
+        if (tabElement) {
+            tabElement.click();
+        }
+    }
+
     document.querySelectorAll('#search-input').forEach(input => {
         input.addEventListener('keyup', function(e) {
             if (e.key === 'Enter') {
@@ -24,21 +32,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
     
-    document.getElementById('add-deleted-account-btn')?.addEventListener('click', () => {
-        showModal('add-deleted-account-modal');
+    document.getElementById('add-multi-account-btn')?.addEventListener('click', () => {
+        showModal('add-multi-account-modal');
     });
 
     document.getElementById('add-another-account-btn')?.addEventListener('click', () => {
-        const container = document.getElementById('deleted-accounts-container');
+        const container = document.getElementById('accounts-container');
         const newInput = document.createElement('div');
-        newInput.className = 'deleted-account-input';
+        newInput.className = 'account-input';
         newInput.innerHTML = `
-            <input type="text" class="account-url" placeholder="https://forum.majestic-rp.ru/members/username.123456/">
-            <button class="remove-account-btn"><i class="fas fa-times"></i></button>
+            <div class="account-input-wrapper">
+                <input type="text" class="account-url" placeholder="https://forum.majestic-rp.ru/members/username.123456/">
+                <select class="account-type">
+                    <option value="multi">Мультиаккаунт</option>
+                    <option value="bypass">Обход блокировки</option>
+                </select>
+                <button class="remove-account-btn"><i class="fas fa-times"></i></button>
+            </div>
         `;
         container.appendChild(newInput);
         
-        // Добавляем обработчик для кнопки удаления
         newInput.querySelector('.remove-account-btn').addEventListener('click', (e) => {
             e.preventDefault();
             container.removeChild(newInput);
@@ -47,29 +60,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     document.getElementById('submit-add-account')?.addEventListener('click', async () => {
         const mainAccountUrl = document.getElementById('main-account-url').value.trim();
-        const accountInputs = document.querySelectorAll('.account-url');
+        const comment = document.getElementById('account-comment').value.trim();
+        const accountInputs = document.querySelectorAll('.account-input');
         
         if (!mainAccountUrl) {
             showNotification('Введите ссылку на основной аккаунт', 'error');
             return;
         }
         
-        const deletedAccounts = [];
+        const accounts = [];
         let hasErrors = false;
         
         accountInputs.forEach(input => {
-            const url = input.value.trim();
+            const url = input.querySelector('.account-url').value.trim();
+            const type = input.querySelector('.account-type').value;
+            
             if (url) {
-                // Проверяем базовую структуру URL перед отправкой
                 if (!url.startsWith('https://forum.majestic-rp.ru/members/')) {
-                    input.style.borderColor = 'var(--status-rejected-text)';
+                    input.querySelector('.account-url').style.borderColor = 'var(--status-rejected-text)';
                     hasErrors = true;
                 } else {
-                    input.style.borderColor = '';
-                    deletedAccounts.push({
+                    input.querySelector('.account-url').style.borderColor = '';
+                    accounts.push({
                         url: url,
                         name: url.split('/').pop().split('.')[0],
-                        id: parseInt(url.split('/').pop().split('.')[1])
+                        id: parseInt(url.split('/').pop().split('.')[1]),
+                        type: type
                     });
                 }
             }
@@ -80,13 +96,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         
-        if (deletedAccounts.length === 0) {
-            showNotification('Добавьте хотя бы один удаляемый аккаунт', 'error');
+        if (accounts.length === 0) {
+            showNotification('Добавьте хотя бы один аккаунт', 'error');
             return;
         }
         
         try {
-            const response = await fetch('/dashboard/admin/deleted-accounts', {
+            const response = await fetch('/dashboard/admin/multi-accounts', {
                 method: 'POST',
                 credentials: 'include',
                 headers: {
@@ -94,7 +110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 },
                 body: new URLSearchParams({
                     'main_account_url': mainAccountUrl,
-                    'deleted_accounts': JSON.stringify(deletedAccounts)
+                    'accounts': JSON.stringify(accounts),
+                    'comment': comment
                 })
             });
             
@@ -104,16 +121,38 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             
             showNotification('Данные успешно добавлены', 'success');
-            hideModal('add-deleted-account-modal');
-            loadDeletedAccounts(); 
+            hideModal('add-multi-account-modal');
+            loadMultiAccounts();
         } catch (error) {
             showNotification(`Ошибка: ${error.message}`, 'error');
         }
     });
 
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const modal = this.closest('.modal');
+            if (modal.id === 'view-multi-account-modal') {
+                removeDoubleClickHandlers();
+                currentMultiAccountData = null;
+                
+                // Очищаем поле с ID
+                document.getElementById('edit-account-id').value = '';
+                
+                // Очищаем список файлов
+                document.getElementById('uploaded-files-list').innerHTML = '';
+                document.getElementById('file-upload-input').value = '';
+            }
+            hideModal(modal.id);
+        });
+    });
+
     initAppealsListWebSocket();
     fetchAppealsCounters().then(updateCounters);
 });
+
+function removeUploadedFile(element) {
+    element.closest('.uploaded-file').remove();
+}
 
 setInterval(() => {
     if (appealsListSocket && appealsListSocket.readyState === WebSocket.OPEN) {
@@ -128,6 +167,8 @@ let currentFilters = {
     tabId: null
 };
 let appealsListSocket = null;
+let currentMultiAccountData = null;
+let doubleClickHandlers = new Map();
 
 async function loadFiltersFromStorage() {
     const savedFilters = localStorage.getItem('appealsFilters');
@@ -416,6 +457,8 @@ function initTabs(tabButtonsSelector, tabContentsSelector, indicatorSelector) {
     }
     
     function activateTab(tabId, element = null) {
+        localStorage.setItem('activeAdminTab', tabId);
+
         const currentActiveTab = document.querySelector(`${tabButtonsSelector}.active`);
         
         if (currentActiveTab === (element || document.querySelector(`${tabButtonsSelector}[data-tab="${tabId}"]`))) {
@@ -465,8 +508,8 @@ function initTabs(tabButtonsSelector, tabContentsSelector, indicatorSelector) {
                 
                 if (tabId === 'appeals-active' || tabId === 'appeals-closed') {
                     loadAppeals(tabId);
-                } else if (tabId === 'deleted-accounts') {
-                    loadDeletedAccounts();
+                } else if (tabId === 'multi-accounts') {
+                    loadMultiAccounts();
                 }
             }
         });
@@ -687,8 +730,8 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
     }
 }
 
-async function loadDeletedAccounts(page = 1) {
-    const container = document.getElementById('deleted-accounts-list');
+async function loadMultiAccounts(page = 1) {
+    const container = document.getElementById('multi-accounts-list');
     if (!container) return;
 
     container.innerHTML = `
@@ -698,7 +741,7 @@ async function loadDeletedAccounts(page = 1) {
     `;
 
     try {
-        const response = await fetch(`/dashboard/admin/deleted-accounts?page=${page}`, {
+        const response = await fetch(`/dashboard/admin/multi-accounts?page=${page}`, {
             credentials: 'include'
         });
 
@@ -707,7 +750,7 @@ async function loadDeletedAccounts(page = 1) {
         }
 
         const data = await response.json();
-        renderDeletedAccounts(container, data.accounts, data.total_pages, page);
+        renderMultiAccounts(container, data.accounts, data.total_pages, page);
     } catch (error) {
         container.innerHTML = `
             <div class="no-appeals">Ошибка загрузки: ${error.message}</div>
@@ -715,9 +758,9 @@ async function loadDeletedAccounts(page = 1) {
     }
 }
 
-function renderDeletedAccounts(container, accounts, totalPages = 1, currentPage = 1) {
+function renderMultiAccounts(container, accounts, totalPages = 1, currentPage = 1) {
     if (!accounts || accounts.length === 0) {
-        container.innerHTML = '<div class="no-appeals">Нет данных об удаленных аккаунтах</div>';
+        container.innerHTML = '<div class="no-appeals">Нет данных о мультиаккаунтах</div>';
         return;
     }
 
@@ -727,43 +770,297 @@ function renderDeletedAccounts(container, accounts, totalPages = 1, currentPage 
         const date = new Date(account.created_at).toLocaleString();
         
         html += `
-            <div class="deleted-account-card">
-                <div class="deleted-account-header">
+            <div class="multi-account-card" data-id="${account.id}">
+                <div class="multi-account-header">
                     <div class="main-account">
                         <span>Основной аккаунт:</span>
                         <a href="${account.main_account.url}" target="_blank" class="main-account-link">
                             ${account.main_account.name} (ID: ${account.main_account.id})
                         </a>
                     </div>
+                    <span class="accounts-count">${account.accounts_count} аккаунтов</span>
                 </div>
                 
-                <div class="deleted-accounts-list">
-                    ${account.deleted_accounts.map(deleted => `
-                        <div class="deleted-account-item">
-                            <a href="${deleted.url}" target="_blank" class="deleted-account-link">
-                                ${deleted.name} (ID: ${deleted.id}) удаленный аккаунт
-                            </a>
-                        </div>
-                    `).join('')}
+                ${account.comment_preview ? `
+                <div class="account-comment-preview">
+                    ${account.comment_preview}
                 </div>
+                ` : ''}
                 
-                <div class="deleted-account-date">Добавлено: ${date}</div>
+                <div class="multi-account-footer">
+                    <span class="account-date">Добавлено: ${date}</span>
+                    <button class="view-details-btn" data-id="${account.id}">
+                        Подробнее
+                    </button>
+                </div>
             </div>
         `;
     });
 
     if (totalPages > 1) {
-        html += renderPagination(currentPage, totalPages, 'deleted-accounts');
+        html += renderPagination(currentPage, totalPages, 'multi-accounts');
     }
     
     container.innerHTML = html;
     
-    document.querySelectorAll('#deleted-accounts-list .page-btn:not(.disabled)').forEach(btn => {
+    // Добавляем обработчики для кнопок "Подробнее"
+    document.querySelectorAll('.view-details-btn').forEach(btn => {
         btn.addEventListener('click', () => {
-            const page = btn.getAttribute('data-page');
-            loadDeletedAccounts(parseInt(page));
+            const accountId = btn.getAttribute('data-id');
+            showMultiAccountDetails(accountId);
         });
     });
+    
+    document.querySelectorAll('#multi-accounts-list .page-btn:not(.disabled)').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = btn.getAttribute('data-page');
+            loadMultiAccounts(parseInt(page));
+        });
+    });
+}
+
+async function loadMultiAccountFiles(multiAccountId) {
+    try {
+        const response = await fetch(`/dashboard/admin/multi-accounts/${multiAccountId}/files`, {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const files = await response.json();
+            renderFilesList(files);
+        }
+    } catch (error) {
+        console.error('Ошибка загрузки файлов:', error);
+    }
+}
+
+function renderFilesList(files) {
+    const filesList = document.getElementById('files-list');
+    
+    if (!files || files.length === 0) {
+        filesList.innerHTML = '<div class="no-files">Нет прикрепленных файлов</div>';
+        return;
+    }
+    
+    let html = '';
+    files.forEach(file => {
+        html += `
+            <div class="file-item">
+                <a href="/dashboard/admin/multi-accounts/${currentMultiAccountData.account.id}/files/${file.id}/download" 
+                    target="_blank" class="file-link">
+                    <i class="fas fa-file"></i> ${file.filename}
+                </a>
+                <span class="file-size">${formatFileSize(file.file_size)}</span>
+                <span class="file-date">${new Date(file.uploaded_at).toLocaleDateString()}</span>
+            </div>
+        `;
+    });
+    
+    filesList.innerHTML = html;
+}
+
+async function showMultiAccountDetails(accountId) {
+    try {
+        const response = await fetch(`/dashboard/admin/multi-accounts/${accountId}`, {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки деталей');
+        }
+
+        const data = await response.json();
+        currentMultiAccountData = data;
+        renderMultiAccountDetails(data);
+        showModal('view-multi-account-modal');
+        
+        document.getElementById('edit-account-id').value = accountId;     
+        addDoubleClickHandlers();
+        
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
+}
+
+function addDoubleClickHandlers() {
+    removeDoubleClickHandlers(); // Сначала удаляем старые обработчики
+    
+    document.querySelectorAll('.account-type-badge').forEach(badge => {
+        const handler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const accountItem = badge.closest('.detailed-account-item');
+            const accountLink = accountItem.querySelector('.account-link');
+            const accountUrl = accountLink.href;
+            const accountId = extractAccountIdFromUrl(accountUrl);
+            
+            if (!accountId) {
+                showNotification('Не удалось определить ID аккаунта из URL', 'error');
+                return;
+            }
+            
+            toggleAccountType(accountId, badge, accountUrl);
+        };
+        
+        badge.addEventListener('dblclick', handler);
+        doubleClickHandlers.set(badge, handler);
+    });
+    
+    document.querySelectorAll('.set-main-btn:not(.active)').forEach(btn => {
+        const handler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const accountItem = btn.closest('.detailed-account-item');
+            const accountLink = accountItem.querySelector('.account-link');
+            const accountUrl = accountLink.href;
+            const accountId = extractAccountIdFromUrl(accountUrl);
+            const accountName = extractUsernameFromUrl(accountUrl);
+            
+            if (!accountId || !accountName) {
+                showNotification('Не удалось определить данные аккаунта из URL', 'error');
+                return;
+            }
+            
+            setAsMainAccount(accountId, accountUrl, accountName);
+        };
+        
+        btn.addEventListener('click', handler);
+        doubleClickHandlers.set(btn, handler);
+    });
+}
+
+function removeDoubleClickHandlers() {
+    doubleClickHandlers.forEach((handler, element) => {
+        element.removeEventListener('dblclick', handler);
+        element.removeEventListener('click', handler);
+    });
+    doubleClickHandlers.clear();
+}
+
+async function toggleAccountType(accountId, badgeElement, accountUrl) {
+    try {
+        const currentType = badgeElement.classList.contains('type-multi') ? 'multi' : 'bypass';
+        const newType = currentType === 'multi' ? 'bypass' : 'multi';
+        
+        const response = await fetch('/dashboard/admin/multi-accounts/update-account-type', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                multi_account_id: document.getElementById('edit-account-id').value,
+                account_id: accountId,
+                account_url: accountUrl,
+                new_type: newType
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Ошибка обновления типа аккаунта');
+        }
+
+        // Обновляем внешний вид
+        badgeElement.classList.remove(`type-${currentType}`);
+        badgeElement.classList.add(`type-${newType}`);
+        badgeElement.textContent = newType === 'multi' ? 'Мультиаккаунт' : 'Обход блокировки';
+        
+        showNotification('Тип аккаунта успешно изменен', 'success');
+        
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
+}
+
+async function setAsMainAccount(accountId, accountUrl, accountName) {
+    try {
+        const multiAccountId = document.getElementById('edit-account-id').value;
+        
+        const response = await fetch('/dashboard/admin/multi-accounts/set-main-account', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                multi_account_id: multiAccountId,
+                new_main_account_id: accountId,
+                new_main_account_url: accountUrl,
+                new_main_account_name: accountName
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Ошибка установки основного аккаунта');
+        }
+
+        showNotification('Основной аккаунт успешно изменен', 'success');
+        
+        // Перезагружаем данные
+        showMultiAccountDetails(multiAccountId);
+        
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
+}
+
+function renderMultiAccountDetails(data) {
+    const accountsList = document.getElementById('detailed-accounts-list');
+    const logsList = document.getElementById('account-logs-list');
+
+    let accountsHtml = '';
+    
+    // Основной аккаунт
+    accountsHtml += `
+        <div class="detailed-account-item account-main">
+            <div class="account-info">
+                <a href="${data.account.main_account.url}" target="_blank" class="account-link">
+                    ${data.account.main_account.name} (ID: ${data.account.main_account.id})
+                </a>
+                <span class="main-badge">Основной аккаунт</span>
+            </div>
+        </div>
+    `;
+    
+    // Остальные аккаунты
+    data.account.accounts.forEach(account => {
+        accountsHtml += `
+            <div class="detailed-account-item">
+                <div class="account-info">
+                    <a href="${account.url}" target="_blank" class="account-link">
+                        ${account.name} (ID: ${account.id})
+                    </a>
+                    <span class="account-type-badge type-${account.type}" title="Двойной клик для изменения типа">
+                        ${account.type === 'multi' ? 'Мультиаккаунт' : 'Обход блокировки'}
+                    </span>
+                </div>
+                <button class="set-main-btn" title="Сделать основным">Сделать основным</button>
+            </div>
+        `;
+    });
+    
+    accountsList.innerHTML = accountsHtml;
+
+    let logsHtml = '';
+    data.logs.forEach(log => {
+        logsHtml += `
+            <div class="log-item">
+                <div class="log-header">
+                    <span class="log-type">${getLogTypeName(log.action_type)}</span>
+                    <span class="log-date">${new Date(log.changed_at).toLocaleString('ru-RU')}</span>
+                </div>
+                <div class="log-details">${formatLogDetails(log.action_details)}</div>
+                <div class="log-user">Изменено: ${log.user_name}</div>
+            </div>
+        `;
+    });
+    logsList.innerHTML = logsHtml;
+
+    document.getElementById('account-comment-modal').value = data.account.comment || '[Нет комментария]';
 }
 
 async function initFilters() {
@@ -854,5 +1151,136 @@ function getStatusClass(status) {
         case 'resolved': return 'status-completed'
         case 'rejected': return 'status-rejected';
         default: return 'status-pending';
+    }
+}
+
+function getLogTypeName(actionType) {
+    const types = {
+        'created': 'Создание',
+        'account_type_changed': 'Изменение типа аккаунта',
+        'main_account_changed': 'Изменение основного аккаунта',
+        'comment_updated': 'Обновление комментария',
+        'updated': 'Обновление',
+        'deleted': 'Удаление',
+        'add_multi_account': 'Добавление мультиаккаунта',
+        'banned_user': 'Блокировка пользователя',
+        'unbanned_user': 'Разблокировка пользователя',
+        'update_role_user': 'Изменение роли',
+        'user_restored': 'Восстановление пользователя',
+        'approved_request': 'Одобрение заявки',
+        'rejected_request': 'Отклонение заявки',
+        'appeal_closed': 'Закрытие обращения',
+        'reassigning_appeal': 'Переназначение обращения'
+    };
+    return types[actionType] || actionType;
+}
+
+function formatLogDetails(details) {
+    if (typeof details === 'string') {
+        try {
+            const parsed = JSON.parse(details);
+            return formatObjectDetails(parsed);
+        } catch (e) {
+            return details;
+        }
+    }
+    
+    if (typeof details === 'object') {
+        return formatObjectDetails(details);
+    }
+    
+    return String(details);
+}
+
+function formatObjectDetails(obj) {
+    let result = '';
+    
+    if (obj.account_id) {
+        result += `<strong>ID аккаунта:</strong> ${obj.account_id}<br>`;
+    }
+    
+    if (obj.account_url) {
+        result += `<strong>URL аккаунта:</strong> <a href="${obj.account_url}" target="_blank">${obj.account_url}</a><br>`;
+    }
+    
+    if (obj.new_type) {
+        result += `<strong>Новый тип:</strong> ${obj.new_type === 'multi' ? 'Мультиаккаунт' : 'Обход блокировки'}<br>`;
+    }
+    
+    if (obj.action === 'main_account_changed') {
+        result += `<strong>Действие:</strong> Изменение основного аккаунта<br>`;
+        if (obj.new_main_account_id) {
+            result += `<strong>Новый основной ID:</strong> ${obj.new_main_account_id}<br>`;
+        }
+        if (obj.new_main_account_name) {
+            result += `<strong>Новое имя:</strong> ${obj.new_main_account_name}<br>`;
+        }
+    }
+    
+    if (obj.old_main_account) {
+        result += `<strong>Старый основной:</strong> ${obj.old_main_account.name} (ID: ${obj.old_main_account.id})<br>`;
+    }
+    
+    if (obj.new_main_account) {
+        result += `<strong>Новый основной:</strong> ${obj.new_main_account.name} (ID: ${obj.new_main_account.id})<br>`;
+    }
+
+    if (obj.main_account) {
+        result += `<strong>Основной аккаунт:</strong> ${obj.main_account}<br>`;
+    }
+    
+    if (obj.accounts_count !== undefined) {
+        result += `<strong>Количество аккаунтов:</strong> ${obj.accounts_count}<br>`;
+    }
+    
+    if (obj.comment) {
+        const commentPreview = obj.comment.length > 100 ? 
+            obj.comment.substring(0, 100) + '...' : obj.comment;
+        result += `<strong>Комментарий:</strong> ${commentPreview}<br>`;
+    }
+    
+    if (obj.added_accounts) {
+        result += `<strong>Добавленные аккаунты:</strong> ${obj.added_accounts.join(', ')}<br>`;
+    }
+    
+    if (obj.removed_accounts) {
+        result += `<strong>Удаленные аккаунты:</strong> ${obj.removed_accounts.join(', ')}<br>`;
+    }
+    
+    if (obj.changed_accounts) {
+        result += `<strong>Измененные аккаунты:</strong><br>`;
+        obj.changed_accounts.forEach(change => {
+            result += `- ${change.account}: ${change.changes.join(', ')}<br>`;
+        });
+    }
+    
+    return result || JSON.stringify(obj, null, 2);
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function extractAccountIdFromUrl(url) {
+    try {
+        const match = url.match(/members\/[^\/]+\.(\d+)/);
+        return match ? parseInt(match[1]) : null;
+    } catch (error) {
+        console.error('Ошибка извлечения ID из URL:', error);
+        return null;
+    }
+}
+
+function extractUsernameFromUrl(url) {
+    try {
+        const match = url.match(/members\/([^\/]+)\.\d+/);
+        return match ? match[1] : null;
+    } catch (error) {
+        console.error('Ошибка извлечения username из URL:', error);
+        return null;
     }
 }
