@@ -6,13 +6,13 @@
     <title>Majestic | Admin General</title>
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/roboto/roboto.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/root.css?v=0.0.7') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/root.css?v=0.0.6') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/dashboard.css?v=0.0.14') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/navbar.css?v=0.0.5') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/modal.css?v=0.0.4') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-general.css?v=0.0.7') }}">
-    
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/modal.css?v=0.0.9') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">   
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/messanger.css?v=0.0.12') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-general.css?v=0.0.20') }}"> 
 </head>
 <body>
     <div class="dashboard-container">
@@ -40,7 +40,7 @@
                 </div> 
                 <div class="tooltip-container">
                     <button class="nav-btn" onclick="window.location.href='/dashboard/admin'">
-                        <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g clip-path="url(#clip0_429_11067)"> <path d="M15 4.00098H5V18.001C5 19.1055 5.89543 20.001 7 20.001H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> <path d="M16 15.001L19 12.001M19 12.001L16 9.00098M19 12.001H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> <defs> <clipPath id="clip0_429_11067"> <rect width="24" height="24" fill="currentColor" transform="translate(0 0.000976562)"></rect> </clipPath> </defs> </g></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m8 5l-5 5l5 5"/><path d="M3 10h8c5.523 0 10 4.477 10 10v1"/></g></svg>
                     </button>
                     <span class="tooltip-text">Вернуться назад</span>
                 </div>
@@ -48,6 +48,24 @@
         </div>
 
         <div class="dashboard-content">
+            <!-- Контейнер для чата обращений -->
+            <div class="appeal-chat-container" id="appeal-chat-container" style="display: none;">
+                <div class="appeal-chat-header">
+                    <div class="appeal-group-chat">
+                        <button class="back-to-user-btn" onclick="closeAppealChatAndReturnToUser()">
+                            <i class="fas fa-arrow-left"></i>
+                            Назад к пользователю
+                        </button>
+                        <h3>Чат обращения <span class="appeal-type" id="appeal-type"></span></h3>
+                        <p id="appeal-id"></p>
+                    </div>
+                    <button class="close-chat-btn" onclick="closeAppealChatAndReturnToUser()">&times;</button>
+                </div>
+                <div class="appeal-messages" id="appeal-messages">
+                    <!-- Сообщения будут загружаться здесь -->
+                </div>
+            </div>
+
             <!-- Вкладка логи действий -->
             <div class="tab-content active" id="logs-tab">
                 <div class="logs-container">
@@ -135,11 +153,11 @@
     </div>
 
     <!-- Модальное окно с детальной информацией о пользователе -->
-    <div class="modal hidden" id="user-details-modal" style=" display: none;" style=" display: none;">
+    <div class="modal hidden" id="user-details-modal" style="display: none;">
         <div class="modal-content wide-modal">
-            <span class="close-modal">&times;</span>
             <div class="modal-header">
                 <h2>Управление пользователем</h2>
+                <span class="close-modal">&times;</span>
             </div>
             
             <div class="modal-tabs">
@@ -149,10 +167,12 @@
                 <div class="tab-indicator"></div>
             </div>
             
+            <!-- Вкладка Основное -->
             <div class="tab-content active" id="user-info-tab">
                 <div class="user-profile-section">
                     <div class="user-main-info">
                         <h3 id="user-username"></h3>
+                        <div class="container-status-badge"><span class="user-status-badge" id="user-status-badge"></span></div>
                         <div class="user-role-badge" id="user-role"></div>
                         <div class="user-email" id="user-email"></div>
                     </div>
@@ -175,6 +195,7 @@
                 
                 <div class="section-header">
                     <h3>Последние изменения</h3>
+                    <div class="pagination-info" id="user-history-pagination-info"></div>
                 </div>
                 <div class="history-list compact" id="user-history-list">
                     <!-- История будет загружена через JS -->
@@ -182,30 +203,32 @@
                 <div class="pagination" id="user-history-pagination"></div>
             </div>
             
+            <!-- Вкладка Обращения -->
             <div class="tab-content" id="user-appeals-tab">
                 <div class="appeals-list" id="user-created-appeals-section">
                     <div class="section-header">
                         <h3>Созданные обращения</h3>
                         <div class="pagination-info" id="created-appeals-pagination-info"></div>
                     </div>
-                    <div class="appeals-list" id="user-created-appeals">
-                        <!-- Обращения будут загружены через JS -->
+                    <div class="appeals-grid" id="user-created-appeals">
+                        <!-- Обращения будут загрузки через JS -->
                     </div>
+                    <div class="pagination" id="created-appeals-pagination"></div>
                 </div>
-                <div class="pagination" id="created-appeals-pagination"></div>
                 
                 <div class="moderator-section hidden" id="moderator-appeals-section">
                     <div class="section-header">
                         <h3>Рассмотренные обращения</h3>
                         <div class="pagination-info" id="assigned-appeals-pagination-info"></div>
                     </div>
-                    <div class="appeals-list" id="user-assigned-appeals">
+                    <div class="appeals-grid" id="user-assigned-appeals">
                         <!-- Назначенные обращения будут загружены через JS -->
                     </div>
                     <div class="pagination" id="assigned-appeals-pagination"></div>
                 </div>
             </div>
             
+            <!-- Вкладка Заявки -->
             <div class="tab-content" id="user-requests-tab">
                 <div class="section-header">
                     <h3>Заявки пользователя</h3>
@@ -223,11 +246,76 @@
         </div>
     </div>
 
+    <!-- Модальное окно подтверждения для восстановления -->
+    <div id="confirmRestoreModal" class="modal hidden confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение восстановления</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <form id="confirmRestoreForm">
+                <div class="modal-body"> 
+                    <p class="confirmation-text" id="restore-confirm-text"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn cancel-confirm-btn">Отмена</button>
+                    <button type="submit" class="primary-btn confirm-btn">Подтвердить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения для блокировки/разблокировки -->
+    <div id="confirmBanModal" class="modal hidden confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение действия</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <form id="confirmBanForm">
+                <div class="modal-body"> 
+                    <p class="confirmation-text" id="ban-confirm-text"></p>
+                    <div class="form-group" id="ban-reason-container">
+                        <label for="ban-reason">Причина:</label>
+                        <textarea id="ban-reason" placeholder="Укажите причину..." rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn cancel-confirm-btn">Отмена</button>
+                    <button type="submit" class="primary-btn confirm-btn">Подтвердить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно подтверждения для изменения роли -->
+    <div id="confirmRoleModal" class="modal hidden confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение изменения роли</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <form id="confirmRoleForm">
+                <div class="modal-body"> 
+                    <p class="confirmation-text">Вы уверены, что хотите изменить роль пользователя?</p>
+                    <div class="role-change-info">
+                        <p><strong>Текущая роль:</strong> <span id="current-role-name"></span></p>
+                        <p><strong>Новая роль:</strong> <span id="new-role-name"></span></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="secondary-btn cancel-confirm-btn">Отмена</button>
+                    <button type="submit" class="primary-btn confirm-btn">Подтвердить изменение</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const currentUser = {{ user | tojson | safe }};
     </script>
 
     <script src="{{ url_for('static', path='scripts/root.js?v=0.0.1') }}"></script>
-    <script src="{{ url_for('static', path='scripts/admin-general.js?v=0.0.25') }}"></script>
+    <script src="{{ url_for('static', path='scripts/admin-general.js?v=0.0.47') }}"></script>
 </body>
 </html>

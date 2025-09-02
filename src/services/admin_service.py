@@ -3,8 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import  and_, func, or_, cast, String
 from typing import List, Optional, Dict
+from fastapi import BackgroundTasks
 import uuid
 
+from src.services.email_service import send_restoration_email_in_background
 from src.database import get_session
 from src.models.user_model import SupportAssignment, User, DeletedAccount, UserHistory, UserRequest, UserBan, UserRequestType
 from src.models.appeal_model import (
@@ -56,7 +58,19 @@ class AdminService:
                     AppealAssignment.released_at == None
                 )
             )
-        
+        else:
+            if current_user["role"]["level"] < 6:
+                assigned_to_others_subq = select(AppealAssignment.appeal_id).where(
+                    and_(
+                        AppealAssignment.user_id != current_user["id"],
+                        AppealAssignment.released_at == None
+                    )
+                )
+                
+                query = query.where(
+                    ~Appeal.id.in_(assigned_to_others_subq)
+                )
+            
         if search:
             search = f"%{search}%"
             help_subq = select(HelpAppeal.appeal_id).where(HelpAppeal.description.ilike(search))
@@ -510,7 +524,7 @@ class AdminService:
         ip_address: str,
         user_agent: str
     ):
-        """Заблокировать пользователя"""
+        """Заблокировать пользователя с принудительным выходом"""
         from src.utils.fingerprint import generate_fingerprint
         
         user = await self.session.get(User, user_id)
@@ -547,7 +561,6 @@ class AdminService:
         
         self.session.add(ban)
         self.session.add(user)
-        await self.session.commit()
         
         history = UserHistory(
             user_id=user_id,
@@ -557,6 +570,7 @@ class AdminService:
             changed_by=banned_by
         )
         self.session.add(history)
+        
         await self.session.commit()
     
     async def get_roles(self, max_level: int) -> List[dict]:
@@ -579,12 +593,25 @@ class AdminService:
         self,
         user_id: uuid.UUID,
         role_id: str,
-        current_user_level: int
+        current_user_level: int,
+        current_user_id: uuid.UUID
     ):
         """Изменить роль пользователя"""
         user = await self.session.get(User, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+        if user.id == current_user_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Вы не можете изменить свою собственную роль"
+            )
+        
+        if user.role.level >= current_user_level:
+            raise HTTPException(
+                status_code=403,
+                detail="Нельзя изменять роль пользователя с уровнем выше или равным вашему"
+            )
         
         role = await self.session.get(Role, role_id)
         if not role:
@@ -596,16 +623,28 @@ class AdminService:
                 detail="Вы не можете назначать роли выше вашего уровня"
             )
         
+        if user.role_id == role.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Пользователь уже имеет эту роль"
+            )
+        
+        if role.level >= current_user_level:
+            raise HTTPException(
+                status_code=403,
+                detail="Вы не можете назначать роли равные или выше вашей"
+            )
+        
         user.role_id = role.id
         self.session.add(user)
         await self.session.commit()
         
-        # Записываем в историю
         history = UserHistory(
             user_id=user_id,
             change_type="role",
             old_value=str(user.role.name),
-            new_value=str(role.name)
+            new_value=str(role.name),
+            changed_by=current_user_id
         )
         self.session.add(history)
         await self.session.commit()
@@ -695,14 +734,14 @@ class AdminService:
             if not user:
                 raise HTTPException(status_code=404, detail="Пользователь не найден")
             
-            user.is_active = False
-            self.session.add(user)
+            # Мягкое удаление аккаунта вместо полного удаления
+            await self.soft_delete_user(user.id, resolved_by)
             
             history = UserHistory(
                 user_id=user.id,
                 change_type="account_deletion",
                 old_value="Active",
-                new_value="Deleted",
+                new_value="Soft Deleted",
                 changed_by=resolved_by
             )
             self.session.add(history)
@@ -711,6 +750,87 @@ class AdminService:
         await self.session.commit()
         
         return True
+    
+    async def soft_delete_user(self, user_id: uuid.UUID, deleted_by: uuid.UUID):
+        """Мягкое удаление пользователя с принудительным выходом"""
+        user = await self.session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+        user.is_active = False
+        user.deleted_at = func.now()
+        user.deleted_by = deleted_by
+        
+        # Сохраняем оригинальные данные
+        original_email = user.email
+        original_username = user.username
+        
+        # Генерируем короткое имя для удаленного пользователя
+        short_id = str(user.id)[:8]
+        user.username = f"deleted_{short_id}"
+        
+        user.password_hash = "deleted"
+        
+        history = UserHistory(
+            user_id=user_id,
+            change_type="account_deletion",
+            old_value=f"Active: {original_username} ({original_email})",
+            new_value=f"Deleted: {user.username}",
+            changed_by=deleted_by
+        )
+        
+        self.session.add(user)
+        self.session.add(history)
+        await self.session.commit()
+        
+    async def restore_user(self, user_id: uuid.UUID, restored_by: uuid.UUID, background_tasks: BackgroundTasks):
+        """Восстановление мягко удаленного пользователя с отправкой email"""
+        from src.services.auth_handler import get_password_hash, generate_temporary_password
+        
+        user = await self.session.get(User, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        
+        if user.is_active:
+            raise HTTPException(status_code=400, detail="Пользователь уже активен")
+        
+        # Генерируем временный пароль
+        temp_password = generate_temporary_password()
+        hashed_password = get_password_hash(temp_password)
+        
+        user.is_active = True
+        user.deleted_at = None
+        user.deleted_by = None
+        user.hash_pasw = hashed_password
+        
+        # Генерируем новое имя пользователя
+        user.username = f"user_{uuid.uuid4().hex[:8]}"
+        
+        self.session.add(user)
+        
+        history = UserHistory(
+            user_id=user_id,
+            change_type="account_restored",
+            old_value="Soft Deleted",
+            new_value="Restored",
+            changed_by=restored_by
+        )
+        self.session.add(history)
+        
+        await self.session.commit()
+        
+        # Отправляем email с временными данными
+        send_restoration_email_in_background(
+            background_tasks,
+            user.email,
+            user.username,
+            temp_password
+        )
+        
+        return {
+            "user": user,
+            "temporary_password": temp_password
+        }
     
     async def get_moderators_list(self) -> List[dict]:
         """Получить список всех модераторов"""
@@ -729,6 +849,48 @@ class AdminService:
             "role_level": moderator.role.level,
             "role_name": moderator.role.name
         } for moderator in moderators]
+    
+    async def get_appeals_counters(self, current_user: Dict) -> dict:
+        """Получить счетчики обращений с учетом прав доступа пользователя"""
+        
+        # Получаем разрешенные типы обращений для пользователя
+        from src.security_middleware import AppealPermissionChecker
+        allowed_types = AppealPermissionChecker.get_allowed_appeal_types(current_user)
+        
+        if not allowed_types:
+            return {
+                "pending": 0,
+                "user_assigned": 0
+            }
+        
+        # Счетчик необработанных обращений (только разрешенных типов)
+        pending_query = select(func.count()).select_from(Appeal).where(
+            and_(
+                Appeal.status == "pending",
+                Appeal.type.in_([AppealType(t) for t in allowed_types])
+            )
+        )
+        
+        pending_result = await self.session.execute(pending_query)
+        pending = pending_result.scalar() or 0
+        
+        # Счетчик обращений, назначенных текущему пользователю
+        user_assigned_query = select(func.count()).select_from(AppealAssignment).join(Appeal, AppealAssignment.appeal_id == Appeal.id).where(
+            and_(
+                AppealAssignment.user_id == current_user["id"],
+                AppealAssignment.released_at == None,
+                Appeal.status.in_(["pending", "in_progress"]),
+                Appeal.type.in_([AppealType(t) for t in allowed_types])
+            )
+        )
+        
+        user_assigned_result = await self.session.execute(user_assigned_query)
+        user_assigned = user_assigned_result.scalar() or 0
+        
+        return {
+            "pending": pending,
+            "user_assigned": user_assigned
+        }
     
 async def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
     return AdminService(session)

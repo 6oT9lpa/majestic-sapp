@@ -305,13 +305,13 @@ document.addEventListener('DOMContentLoaded', function() {
 async function handleUsernameChange(e) {
     e.preventDefault();
     const form = e.target;
-    const username = form.querySelector('#new-username').value.trim();
-    
-    if (!username || username.length < 3 || username.length > 20) {
-        showNotification('Никнейм должен быть от 3 до 20 символов', 'error');
-        return;
+    const username = form.querySelector('#new-username');
+
+    if (!username.value || !/^[a-zA-Z0-9_ .]{3,50}$/.test(username.value)) {
+        showFieldError(username, 'Новый никнейм может содержать только латинские буквы, цифры, пробелы и точки.');
+        isValid = false;
     }
-    
+
     try {
         const response = await fetch('/dashboard/user/request-username-change', {
             method: 'POST',
@@ -319,7 +319,7 @@ async function handleUsernameChange(e) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ 
-                new_username: username
+                new_username: username.value
             })
         });
 

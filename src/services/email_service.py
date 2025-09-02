@@ -157,3 +157,162 @@ def send_verification_email_in_background(background_tasks: BackgroundTasks, to_
     """
     
     background_tasks.add_task(send_email, to_email, subject, body)
+
+def send_restoration_email_in_background(background_tasks: BackgroundTasks, to_email: str, username: str, temp_password: str):
+    """Отправляет письмо с временными данными для восстановленного аккаунта"""
+    login_url = f"{Config.BASE_URL}/auth/login"
+    
+    subject = "Ваш аккаунт восстановлен — Majestic RP"
+    body = f"""
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {{
+                font-family: 'Roboto', Arial, sans-serif;
+                line-height: 1.6;
+                color: #1d1d1d;
+                background-color: #f5f5f5;
+                margin: 0;
+                padding: 0;
+            }}
+            .wrapper {{
+                max-width: 600px;
+                margin: 40px auto;
+                padding: 0 20px;
+            }}
+            .container {{
+                background-color: #ffffff;
+                border-radius: 12px;
+                padding: 40px;
+                box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            }}
+            .logo {{
+                text-align: center;
+                margin-bottom: 30px;
+            }}
+            .header {{
+                color: #e0015b;
+                font-size: 28px;
+                font-weight: bold;
+                text-align: center;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #f5f5f5;
+            }}
+            .content {{
+                color: #5a5a5a;
+                font-size: 16px;
+                margin-bottom: 30px;
+            }}
+            .button-container {{
+                text-align: center;
+                margin: 35px 0;
+            }}
+            .button {{
+                display: inline-block;
+                padding: 15px 35px;
+                background-color: #e0015b;
+                color: #ffffff !important;
+                text-decoration: none;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 16px;
+                transition: background-color 0.3s;
+            }}
+            .button:hover {{
+                background-color: #c0014b;
+            }}
+            .credentials {{
+                background-color: #fff3f7;
+                border: 2px solid #e0015b;
+                border-radius: 8px;
+                padding: 20px;
+                margin: 20px 0;
+            }}
+            .credentials-item {{
+                margin: 10px 0;
+                padding: 12px;
+                background-color: white;
+                border-radius: 6px;
+                border: 1px solid #ffe6ef;
+                font-family: monospace;
+                font-size: 15px;
+            }}
+            .warning {{
+                background-color: #fff3cd;
+                border: 1px solid #ffeaa7;
+                color: #856404;
+                padding: 15px;
+                border-radius: 6px;
+                margin: 20px 0;
+            }}
+            .footer {{
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 2px solid #f5f5f5;
+                color: #707070;
+                font-size: 14px;
+            }}
+            .highlight {{
+                color: #e0015b;
+                font-weight: bold;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="wrapper">
+            <div class="container">
+                <div class="logo">
+                    <div class="header">Majestic RP</div>
+                </div>
+                
+                <div class="content">
+                    <p>Здравствуйте!</p>
+                    
+                    <p>Ваш аккаунт на портале поддержки игроков <span class="highlight">Majestic RP</span> был успешно восстановлен администратором.</p>
+                    
+                    <div class="warning">
+                        <strong>⚠️ ВАЖНО:</strong> Для безопасности вашего аккаунта был сгенерирован новый временный пароль. 
+                        Рекомендуем немедленно изменить его после входа в систему.
+                    </div>
+                    
+                    <div class="credentials">
+                        <h3 style="color: #e0015b; margin-top: 0;">Ваши данные для входа:</h3>
+                        
+                        <div class="credentials-item">
+                            <strong>Логин:</strong> {username}
+                        </div>
+                        
+                        <div class="credentials-item">
+                            <strong>Временный пароль:</strong> {temp_password}
+                        </div>
+                        
+                        <div class="credentials-item">
+                            <strong>Email:</strong> {to_email}
+                        </div>
+                    </div>
+                    
+                    <div class="button-container">
+                        <a href="{login_url}" class="button">Войти в аккаунт</a>
+                    </div>
+                    
+                    <p>Ссылка для входа: <a href="{login_url}">{login_url}</a></p>
+                    
+                    <div class="footer">
+                        <p><strong>Рекомендации по безопасности:</strong></p>
+                        <ul>
+                            <li>Немедленно измените пароль после входа</li>
+                            <li>Не передавайте свои учетные данные третьим лицам</li>
+                            <li>Используйте надежный уникальный пароль</li>
+                        </ul>
+                        <p>С уважением,<br>Команда безопасности Majestic RP</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    background_tasks.add_task(send_email, to_email, subject, body)

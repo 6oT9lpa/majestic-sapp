@@ -6,13 +6,13 @@
     <title>Majestic | Admin Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='fonts/roboto/roboto.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/root.css?v=0.0.4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/root.css?v=0.0.6') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/dashboard.css?v=0.0.14') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/modal.css?v=0.0.4') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/modal.css?v=0.0.8') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/navbar.css?v=0.0.5') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/messanger.css?v=0.0.12') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.18') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/messanger.css?v=0.0.13') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.21') }}">
 </head>
 <body>
     <div class="dashboard-container">
@@ -62,7 +62,7 @@
                 </div> 
                 <div class="tooltip-container">
                     <button class="nav-btn" onclick="window.location.href='/dashboard/'">
-                        <svg width="24px" height="24px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <g clip-path="url(#clip0_429_11067)"> <path d="M15 4.00098H5V18.001C5 19.1055 5.89543 20.001 7 20.001H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> <path d="M16 15.001L19 12.001M19 12.001L16 9.00098M19 12.001H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path> </g> <defs> <clipPath id="clip0_429_11067"> <rect width="24" height="24" fill="currentColor" transform="translate(0 0.000976562)"></rect> </clipPath> </defs> </g></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m8 5l-5 5l5 5"/><path d="M3 10h8c5.523 0 10 4.477 10 10v1"/></g></svg>
                     </button>
                     <span class="tooltip-text">Вернуться назад</span>
                 </div>
@@ -228,6 +228,48 @@
         </div>
     </div>
 
+    <div id="confirmModal" class="modal hidden confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Подтверждение закрытия обращения</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body"> 
+                <p class="confirmation-text">Вы уверены, что хотите закрыть принудительно это обращение?</p>
+                <div class="form-group">
+                    <label for="close-reason">Причина закрытия:</label>
+                    <textarea id="close-reason" placeholder="Укажите причину принудительного закрытия..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn cancel-confirm-btn">Отмена</button>
+                <button class="primary-btn confirm-btn">Да, закрыть обращение</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="reassignModal" class="modal hidden confirm-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Переназначение обращения</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body"> 
+                <div class="form-group">
+                    <label for="moderator-select">Выберите модератора для переназначения обращения:</label>
+                    <select id="moderator-select" class="modal-select">
+                        <option value="">Выберите модератора</option>
+                        <!-- Модераторы будут загружены динамически -->
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-btn cancel-reassign-btn">Отмена</button>
+                <button class="primary-btn confirm-reassign-btn">Переназначить</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         const currentUser = {{ user | tojson | safe }};
     </script>
@@ -235,6 +277,6 @@
     <!-- Подключение скриптов -->
     <script src="{{ url_for('static', path='scripts/root.js?v=0.0.5') }}"></script>
     <script src="{{ url_for('static', path='scripts/messanger.js?v=0.0.60') }}"></script>
-    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.60') }}"></script>
+    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.68') }}"></script>
 </body>
 </html>

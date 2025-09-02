@@ -1,5 +1,5 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.requests import Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +18,9 @@ from src.api.reports_route import router as report_router
 
 from src.database import init_db
 from src.scripts.init_roles import init_roles
-from src.scripts.parser_complaint import run_parser_background, run_parser_for_date
+from src.services.auth_handler import get_current_user, check_user_ban
+from src.database import get_session
+
 
 class ProxyHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -66,17 +68,15 @@ def get_application() -> FastAPI:
     
     application.mount("/static", StaticFiles(directory="static", html=True), name="static")
     application.mount("/storage", StaticFiles(directory="storage"), name="storage")
-
     
     @application.on_event("startup")
     async def startup():
         await init_db()
         await init_roles()
         pass
-        
+    
     @application.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-        # Сохраняем оригинальное сообщение об ошибке
         detail = exc.detail if hasattr(exc, 'detail') else str(exc)
         
         if exc.status_code == 401:
@@ -88,23 +88,25 @@ def get_application() -> FastAPI:
             )
         
         if exc.status_code == 403:
+            if "Ваш аккаунт заблокирован" in detail:
+                return RedirectResponse(url="/blocked")
+            
             referer = request.headers.get("referer", "/")
             if "text/html" in request.headers.get("accept", ""):
                 return RedirectResponse(
                     url=f"{referer}?error={detail}", 
-                    status_code=303
+                    status_code=302
                 )
             return JSONResponse(
                 status_code=403,
                 content={"detail": detail}
             )
-
-        # Для всех остальных статус-кодов
+            
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": detail} 
         )
-    
+        
     return application
 
 app = get_application()

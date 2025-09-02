@@ -1,0 +1,281 @@
+/* Блокированная страница */
+.blocked-wrapper {
+    min-height: 100vh;
+    background: var(--primary-background);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Хедер */
+.blocked-header {
+    padding: 2rem;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.blocked-logo {
+    display: inline-block;
+}
+
+.blocked-logo svg {
+    fill: var(--accent-color);
+    height: 40px;
+}
+
+/* Основной контент */
+.blocked-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.blocked-card {
+    background: var(--second-background);
+    border-radius: 20px;
+    padding: 3rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    max-width: 800px;
+    width: 100%;
+    text-align: center;
+}
+
+/* Иконка */
+.blocked-icon-container {
+    margin-bottom: 2rem;
+}
+
+.blocked-icon-circle {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-color), #ff4d88);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    box-shadow: 0 10px 30px rgba(224, 1, 91, 0.3);
+}
+
+.blocked-icon-circle i {
+    font-size: 2.5rem;
+    color: white;
+}
+
+/* Заголовки */
+.blocked-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent-color), #ff4d88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.blocked-subtitle {
+    color: var(--second-text);
+    font-size: 1.1rem;
+    margin-bottom: 3rem;
+}
+
+/* Информационная сетка */
+.blocked-info-grid {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 3rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.2rem;
+    background: rgba(224, 1, 91, 0.05);
+    border: 1px solid var(--status-rejected-border);
+    border-radius: 12px;
+    text-align: left;
+}
+
+.info-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--accent-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.info-icon i {
+    color: white;
+    font-size: 1.1rem;
+}
+
+.info-content {
+    flex: 1;
+}
+
+.info-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--second-text);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.info-value {
+    display: block;
+    color: var(--primary-text);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.time-remaining.expired {
+    color: var(--status-resolved-text);
+    font-weight: 700;
+}
+
+/* Действия */
+.blocked-actions {
+    margin-bottom: 3rem;
+}
+
+.actions-title {
+    color: var(--primary-text);
+    margin-bottom: 1.5rem;
+    font-size: 1.3rem;
+    font-weight: 600;
+}
+
+.action-buttons {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.action-btn.primary {
+    background: var(--accent-color);
+    color: white;
+}
+
+.action-btn.primary:hover {
+    background: #c4004e;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(224, 1, 91, 0.3);
+}
+
+.action-btn.secondary {
+    background: transparent;
+    color: var(--primary-text);
+    border: 2px solid var(--border-color);
+}
+
+.action-btn.secondary:hover {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    transform: translateY(-2px);
+}
+
+.action-btn.warning {
+    background: transparent;
+    color: var(--status-rejected-text);
+    border: 2px solid var(--status-rejected-border);
+}
+
+.action-btn.warning:hover {
+    background: var(--status-rejected-bg);
+    transform: translateY(-2px);
+}
+
+.faq-section {
+    background: transparent;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .blocked-card {
+        padding: 2rem;
+        margin: 1rem;
+    }
+
+    .blocked-title {
+        font-size: 2rem;
+    }
+
+    .action-buttons {
+        grid-template-columns: 1fr;
+    }
+
+    .info-item {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .support-channels {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    .blocked-card {
+        padding: 1.5rem;
+    }
+
+    .blocked-title {
+        font-size: 1.75rem;
+    }
+
+    .blocked-icon-circle {
+        width: 80px;
+        height: 80px;
+    }
+
+    .blocked-icon-circle i {
+        font-size: 2rem;
+    }
+}
+
+/* Анимации */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.blocked-icon-circle {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.blocked-card {
+    animation: slideIn 0.6s ease-out;
+}

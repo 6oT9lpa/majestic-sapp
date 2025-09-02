@@ -1,3 +1,4 @@
+from re import T
 from dotenv import load_dotenv
 import os
 
@@ -21,3 +22,5 @@ class Config:
     SMTP_USER = os.getenv("SMTP_USER", "test_email@doc-generator.ru")
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "TestEmail123!")
     BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:8000")
+
+    TEMP_PASSWORD_ALPHABET = os.getenv("TEMP_PASSWORD_ALPHABET", "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*")

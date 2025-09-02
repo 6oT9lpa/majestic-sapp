@@ -743,14 +743,6 @@ span.complaint-id {
     background: #c00050;
 }
 
-.confirm-btn {
-    min-width: 100px;
-}
-
-.cancel-btn {
-    min-width: 100px;
-}
-
 #upload-reports-btn svg {
     width: 40px;
 }

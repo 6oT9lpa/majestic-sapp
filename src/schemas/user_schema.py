@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
     @validator('username')
     def validate_username(cls, v):
         if not re.match(r'^[a-zA-Z0-9_ .]+$', v): 
-            raise ValueError('Никнейм должен содержать только буквы, цифры, пробелы, точки и подчеркивания')
+            raise ValueError('Никнейм может содержать только латинские буквы, цифры, пробелы и точки.')
         return v
 
     @validator('password_confirm')
@@ -24,7 +24,7 @@ class UserCreate(BaseModel):
     def validate_password(cls, v):
         errors = []
         if len(v) < 8:
-            errors.append("Минимум 8 символов")
+            errors.append("Минимум 8 символов и может содержать только латинские буквы")
         if not re.search(r'[A-Z]', v):
             errors.append("Хотя бы одна заглавная буква")
         if not re.search(r'[a-z]', v):
@@ -49,13 +49,13 @@ class UserLogin(BaseModel):
             if len(v) < 3 or len(v) > 50: 
                 raise ValueError('Никнейм должен быть от 3 до 40 символов')
             if not re.match(r'^[a-zA-Z0-9_ .]+$', v):
-                raise ValueError('Никнейм должен содержать только буквы, цифры, пробелы, точки и подчеркивания')
+                raise ValueError('Никнейм может содержать только латинские буквы, цифры, пробелы и точки.')
         return v
 
     @validator('password')
     def validate_password(cls, v):
-        if len(v) < 6:
-            raise ValueError('Пароль должен содержать минимум 6 символов')
+        if len(v) < 8:
+            raise ValueError('Пароль должен содержать минимум 8 символов и может содержать только латинские буквы')
         return v
 
 class ChangePaswRequest(BaseModel):
@@ -72,7 +72,7 @@ class ChangePaswRequest(BaseModel):
     def validate_password_strength(password: str):
         errors = []
         if len(password) < 8:
-            errors.append("Минимум 8 символов")
+            errors.append("Минимум 8 символов и может содержать только латинские буквы")
         if not re.search(r'[A-Z]', password):
             errors.append("Хотя бы одна заглавная буква")
         if not re.search(r'[a-z]', password):
@@ -96,7 +96,7 @@ class ChangeUsernameRequest(BaseModel):
     @validator('new_username')
     def validate_username(cls, v):
         if not re.match(r'^[a-zA-Z0-9_ .]+$', v):
-            raise ValueError('Никнейм должен содержать только буквы, цифры, пробелы, точки и подчеркивания')
+            raise ValueError('Никнейм может содержать только латинские буквы, цифры, пробелы и точки.')
         return v
 
 class Token(BaseModel):

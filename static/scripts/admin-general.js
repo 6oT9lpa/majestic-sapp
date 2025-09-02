@@ -20,11 +20,94 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTabs('#user-details-modal .tab-btn', '#user-details-modal .tab-content', '#user-details-modal .tab-indicator', {
         saveToLocalStorage: 'modalDetailsActiveTab',
     });
+
+    document.querySelectorAll('#user-details-modal .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabName = btn.getAttribute('data-tab');
+            if (currentUserDetails) {
+                loadUserDetailsTab(tabName, userDetailsPagination[tabName].page);
+            }
+        });
+    });
+
+    document.getElementById('confirmRoleForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (currentRoleChangeData) {
+            try {
+                await updateUserRole(currentRoleChangeData.userId, currentRoleChangeData.newRoleId);
+                hideModal('confirmRoleModal');
+                showNotification('Роль пользователя успешно изменена', 'success');
+                loadUserDetailsTab('user-info', userDetailsPagination['user-info'].page);
+                loadUsers();
+            } catch (error) {
+                showNotification(`Ошибка: ${error.message}`, 'error');
+            }
+        }
+    });
+    
+    document.getElementById('confirmBanForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (currentBanActionData) {
+            try {
+                if (currentBanActionData.action === 'ban') {
+                    const reason = document.getElementById('ban-reason').value.trim();
+                    if (!reason) {
+                        showNotification('Пожалуйста, укажите причину блокировки', 'error');
+                        return;
+                    }
+                    await banUser(currentBanActionData.user.id, reason);
+                    showNotification('Пользователь успешно заблокирован', 'success');
+                } else {
+                    await unbanUser(currentBanActionData.user.id);
+                    showNotification('Пользователь успешно разблокирован', 'success');
+                }
+                hideModal('confirmBanModal');
+                loadUserDetailsTab('user-info', userDetailsPagination['user-info'].page);
+                loadUsers();
+            } catch (error) {
+                showNotification(`Ошибка: ${error.message}`, 'error');
+            }
+        }
+    });
+    
+    document.getElementById('confirmRestoreForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (currentRestoreActionData) {
+            try {
+                await restoreUser(currentRestoreActionData.id);
+                showNotification('Пользователь успешно восстановлен', 'success');
+                hideModal('confirmRestoreModal');
+                loadUserDetailsTab('user-info', userDetailsPagination['user-info'].page);
+                loadUsers();
+            } catch (error) {
+                showNotification(`Ошибка: ${error.message}`, 'error');
+            }
+        }
+    });
+
+    document.querySelectorAll('.cancel-confirm-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const modal = btn.closest('.modal');
+            hideModal(modal.id);
+        });
+    });
+
 });
 
 let filtersVisiblelogs = false;
 let filtersVisibleUsers = false;
 let filtersVisibleRequests = false;
+let currentUserDetails = null;
+let currentRoleChangeData = null;
+let currentBanActionData = null;
+let currentRestoreActionData = null;
+
+let userDetailsPagination = {
+    'user-info': { page: 1, perPage: 5 },
+    'user-appeals': { page: 1, perPage: 5 },
+    'user-requests': { page: 1, perPage: 5 }
+};
 
 let currentFiltersLogs = {
     action_type: '',
@@ -85,7 +168,6 @@ async function loadLogs(page = currentFiltersLogs.page) {
         }
         
         const data = await response.json();
-        console.log(data);
         renderLogs(data);
     } catch (error) {
         container.innerHTML = `
@@ -99,6 +181,14 @@ function renderLogs(data) {
     
     if (!data.logs || data.logs.length === 0) {
         container.innerHTML = '<div class="no-logs">Логов не найдено</div>';
+
+        renderPagination(
+            'logs-pagination',
+            1,
+            0,
+            data.per_page || 0,
+            loadLogs
+        );
         return;
     }
     
@@ -131,13 +221,6 @@ function renderLogs(data) {
     });
     
     container.innerHTML = html;
-    
-    console.log('Pagination data:', {
-        containerId: 'logs-pagination',
-        currentPage: data.page,
-        totalPages: data.total_pages,
-        perPage: data.per_page
-    });
 
     renderPagination(
         'logs-pagination',
@@ -252,9 +335,11 @@ function renderUsers(data) {
     );
 }
 
-async function showUserDetails(userId, page = 1, perPage = 5) {
+async function showUserDetails(userId, page = 1, perPage = 5, activeTab = 'user-info') {
     const modal = document.getElementById('user-details-modal');
-    showModal(modal.id);
+    
+    showLoadingIndicator();
+    currentUserDetails = userId;
 
     try {
         const response = await fetch(`/dashboard/admin/general/users/${userId}?page=${page}&per_page=${perPage}`, {
@@ -266,30 +351,119 @@ async function showUserDetails(userId, page = 1, perPage = 5) {
         }
         
         const data = await response.json();
-        renderUserDetails(data, page, perPage);
+        userDetailsPagination[activeTab] = { page, perPage };
+        switchToUserDetailsTab(activeTab);
+
+        showModal(modal.id);
+        renderUserDetails(data, activeTab);
+    } catch (error) {
+        console.error('Failed to load user details:', error);
+        showNotification(`Ошибка: ${error.message}`, 'error');
+        hideModal('user-details-modal');
+    }
+}
+
+function showLoadingIndicator() {
+    const modalContent = document.querySelector('#user-details-modal .modal-content');
+    const loadingHtml = `
+        <div class="loading-overlay">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Загрузка данных пользователя...</p>
+        </div>
+    `;
+    
+    modalContent.insertAdjacentHTML('beforeend', loadingHtml);
+}
+
+function switchToUserDetailsTab(tabName) {
+    const tabButtons = document.querySelectorAll('#user-details-modal .tab-btn');
+    const tabContents = document.querySelectorAll('#user-details-modal .tab-content');
+    
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    tabContents.forEach(content => content.classList.remove('active'));
+    
+    const targetTabBtn = document.querySelector(`#user-details-modal .tab-btn[data-tab="${tabName}"]`);
+    const targetTabContent = document.querySelector(`#user-details-modal #${tabName}-tab`);
+    
+    if (targetTabBtn && targetTabContent) {
+        targetTabBtn.classList.add('active');
+        targetTabContent.classList.add('active');
+        
+        // Обновляем индикатор вкладок
+        const tabIndicator = document.querySelector('#user-details-modal .tab-indicator');
+        if (tabIndicator) {
+            const btnRect = targetTabBtn.getBoundingClientRect();
+            const containerRect = targetTabBtn.parentElement.getBoundingClientRect();
+            
+            tabIndicator.style.width = `${btnRect.width}px`;
+            tabIndicator.style.left = `${btnRect.left - containerRect.left}px`;
+        }
+    }
+}
+
+async function loadUserDetailsTab(tabName, page) {
+    if (!currentUserDetails) return;
+    
+    userDetailsPagination[tabName].page = page;
+
+    const perPage = userDetailsPagination[tabName].perPage;
+    
+    try {
+        const response = await fetch(`/dashboard/admin/general/users/${currentUserDetails}?page=${page}&per_page=${perPage}`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки данных пользователя');
+        }
+        
+        const data = await response.json();
+        
+        switchToUserDetailsTab(tabName);
+        renderUserDetails(data, tabName);
+
     } catch (error) {
         console.error('Failed to load user details:', error);
         showNotification(`Ошибка: ${error.message}`, 'error');
     }
 }
 
-function renderUserDetails(data, currentPage = 1, perPage = 5) {
+function renderUserDetails(data, activeTab = 'user-info') {
     const user = data.user;
+
+    const loadingOverlay = document.querySelector('.loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.remove();
+    }
     
-    // Основная информация
     document.getElementById('user-id').textContent = user.id;
     document.getElementById('user-username').textContent = user.username;
     document.getElementById('user-email').textContent = user.email;
     document.getElementById('user-role').textContent = user.role;
     document.getElementById('user-created').textContent = new Date(user.created_at).toLocaleString();
     document.getElementById('user-last-login').textContent = user.last_login ? new Date(user.last_login).toLocaleString() : 'Никогда';
-    
+
+    // Статус пользователя
+    const statusBadge = document.getElementById('user-status-badge');
+    if (!user.is_active) {
+        if (user.username && user.username.includes('deleted_')) {
+            statusBadge.textContent = 'Деактивирован';
+            statusBadge.className = 'user-status-badge deactivated';
+        } else {
+            statusBadge.textContent = 'Заблокирован';
+            statusBadge.className = 'user-status-badge banned';
+        }
+    } else {
+        statusBadge.textContent = 'Активен';
+        statusBadge.className = 'user-status-badge active';
+    }
+
     // История изменений
     const historyList = document.getElementById('user-history-list');
     const historyData = data.history.items;
     
     if (historyData.length > 0) {
-        historyList.innerHTML = historyData.slice(0, 3).map(h => `
+        historyList.innerHTML = historyData.map(h => `
             <div class="history-item">
                 <div class="history-header">
                     <span>${getHistoryTypeName(h.change_type)}</span>
@@ -305,10 +479,10 @@ function renderUserDetails(data, currentPage = 1, perPage = 5) {
         // Пагинация для истории
         renderPagination(
             'user-history-pagination',
-            currentPage,
+            userDetailsPagination['user-info'].page,
             data.history.total,
-            perPage,
-            (page) => showUserDetails(user.id, page, perPage)
+            userDetailsPagination['user-info'].perPage,
+            (page) => loadUserDetailsTab('user-info', page)
         );
     } else {
         historyList.innerHTML = '<div class="no-data">Нет данных об изменениях</div>';
@@ -316,57 +490,63 @@ function renderUserDetails(data, currentPage = 1, perPage = 5) {
     
     // Обращения пользователя
     const appealsSection = document.getElementById('user-created-appeals-section');
-    const appealsList = document.getElementById('user-created-appeals');
+    const appealsContainer = document.getElementById('user-created-appeals');
     const appealsData = data.appeals.items;
     
     if (appealsData.length > 0) {
         appealsSection.classList.remove('hidden');
-        appealsList.innerHTML = appealsData.map(a => `
-            <div class="appeal-item">
+        appealsContainer.innerHTML = appealsData.map(a => `
+            <div class="appeal-card" data-id="${a.id}">
                 <div class="appeal-header">
-                    <span>${getTypeName(a.type)} (${getStatusName(a.status)})</span>
-                    <span class="appeal-date">${new Date(a.created_at).toLocaleString()}</span>
+                    <span class="appeal-type">${getTypeName(a.type)}</span>
+                    <span class="appeal-status ${a.status}">${getStatusName(a.status)}</span>
                 </div>
-                <div>ID: ${a.id}</div>
+                <div class="appeal-details">
+                    <span class="appeal-id">ID: ${a.id.substring(0, 8)}...</span>
+                    <span class="appeal-date">${new Date(a.created_at).toLocaleDateString()}</span>
+                </div>
             </div>
         `).join('');
         
         // Пагинация для обращений
         renderPagination(
             'created-appeals-pagination',
-            currentPage,
+            userDetailsPagination['user-appeals'].page,
             data.appeals.total,
-            perPage,
-            (page) => showUserDetails(user.id, page, perPage)
+            userDetailsPagination['user-appeals'].perPage,
+            (page) => loadUserDetailsTab('user-appeals', page)
         );
     } else {
-        appealsList.innerHTML = '<div class="no-data">Пользователь не создавал обращений</div>';
+        appealsContainer.innerHTML = '<div class="no-data">Пользователь не создавал обращений</div>';
     }
     
-    // Рассмотренные обращения (для модераторов)
+    // Рассмотренные обращения
     const moderatorSection = document.getElementById('moderator-appeals-section');
-    const assignedAppealsList = document.getElementById('user-assigned-appeals');
+    const assignedAppealsContainer = document.getElementById('user-assigned-appeals');
     const assignedData = data.assigned_appeals.items;
     
     if (user.role_level >= 2 && assignedData.length > 0) {
         moderatorSection.classList.remove('hidden');
-        assignedAppealsList.innerHTML = assignedData.map(a => `
-            <div class="appeal-item">
+        assignedAppealsContainer.innerHTML = assignedData.map(a => `
+            <div class="appeal-card" data-id="${a.appeal_id}">
                 <div class="appeal-header">
-                    <span>${getTypeName(a.type)} (${getStatusName(a.status)})</span>
-                    <span class="appeal-date">Назначено: ${new Date(a.assigned_at).toLocaleString()}</span>
+                    <span class="appeal-type">${getTypeName(a.type)}</span>
+                    <span class="appeal-status ${a.status}">${getStatusName(a.status)}</span>
                 </div>
-                <div>ID: ${a.appeal_id}</div>
+                <div class="appeal-details">
+                    <span class="appeal-id">ID: ${a.appeal_id.substring(0, 8)}...</span>
+                    <span class="appeal-date">Назначено: ${new Date(a.assigned_at).toLocaleDateString()}</span>
+                </div>
             </div>
         `).join('');
         
         // Пагинация для назначенных обращений
         renderPagination(
             'assigned-appeals-pagination',
-            currentPage,
+            userDetailsPagination['user-appeals'].page,
             data.assigned_appeals.total,
-            perPage,
-            (page) => showUserDetails(user.id, page, perPage)
+            userDetailsPagination['user-appeals'].perPage,
+            (page) => loadUserDetailsTab('user-appeals', page)
         );
     } else {
         moderatorSection.classList.add('hidden');
@@ -398,53 +578,46 @@ function renderUserDetails(data, currentPage = 1, perPage = 5) {
         // Пагинация для заявок
         renderPagination(
             'modal-requests-pagination',
-            currentPage,
+            userDetailsPagination['user-requests'].page,
             data.requests.total,
-            perPage,
-            (page) => showUserDetails(user.id, page, perPage)
+            userDetailsPagination['user-requests'].perPage,
+            (page) => loadUserDetailsTab('user-requests', page)
         );
     } else {
         requestsList.innerHTML = '<div class="no-data">Пользователь не отправлял заявок</div>';
     }
 
     const banBtn = document.getElementById('ban-user-btn');
-    if (user.is_active) {
+    if (!user.is_active && user.username && user.username.includes('deleted_')) {
+        banBtn.textContent = 'Восстановить аккаунт';
+        banBtn.className = 'primary-btn';
+        banBtn.onclick = () => showConfirmRestore(user);
+    } else if (user.is_active) {
         banBtn.textContent = 'Заблокировать';
         banBtn.className = 'secondary-btn';
-        banBtn.onclick = async () => {
-            const reason = prompt('Укажите причину блокировки пользователя:');
-            if (!reason) {
-                alert('Блокировка отменена: причина не указана.');
-                return;
-            }
-            try {
-                await banUser(user.id, reason);
-                showNotification('Пользователь успешно заблокирован', 'success');
-                hideModal('user-details-modal');
-                loadUsers();
-            } catch (error) {
-                showNotification(`Ошибка: ${error.message}`, 'error');
-            }
-        };
+        banBtn.onclick = () => showConfirmBan(user, 'ban');
     } else {
         banBtn.textContent = 'Разблокировать';
         banBtn.className = 'secondary-btn';
-        banBtn.onclick = async () => {
-            try {
-                await unbanUser(user.id);
-                showNotification('Пользователь успешно разблокирован', 'success');
-                hideModal('user-details-modal');
-                loadUsers();
-            } catch (error) {
-                showNotification(`Ошибка: ${error.message}`, 'error');
-            }
-        };
+        banBtn.onclick = () => showConfirmBan(user, 'unban');
     }
 
     if (currentUser.role.level >= 6) {
+        const roleContainer = document.getElementById('user-role');
+        roleContainer.innerHTML = '';
+        
+        const roleSelectContainer = document.createElement('div');
+        roleSelectContainer.className = 'role-select-container';
+        
         const roleSelect = document.createElement('select');
         roleSelect.id = 'user-role-select';
         roleSelect.className = 'role-select';
+        
+        const confirmButton = document.createElement('button');
+        confirmButton.className = 'primary-btn confirm-role-btn';
+        confirmButton.textContent = 'Подтвердить';
+        confirmButton.style.display = 'none';
+        confirmButton.onclick = () => showConfirmRoleChange(user.id, roleSelect.value);
         
         // Загружаем список ролей
         loadRoles().then(roles => {
@@ -463,31 +636,206 @@ function renderUserDetails(data, currentPage = 1, perPage = 5) {
             }
             
             roles.forEach(role => {
-                if (role.id !== user.role.id && role.level <= currentUser.role.level) {
+                if (role.id !== user.role.id && role.level < currentUser.role.level) {
                     const option = document.createElement('option');
                     option.value = role.id;
                     option.textContent = role.name;
                     roleSelect.appendChild(option);
                 }
             });
+            
             if (currentRole) {
                 roleSelect.value = currentRole.id;
-            };
-        });
-        
-        const roleContainer = document.getElementById('user-role');
-        roleContainer.innerHTML = '';
-        roleContainer.appendChild(roleSelect);
-        
-        roleSelect.addEventListener('change', async () => {
-            try {
-                await updateUserRole(user.id, roleSelect.value);
-                showUserDetails(user.id); 
-            } catch (error) {
-                console.error('Failed to update role:', error);
             }
+            
+            roleSelect.addEventListener('change', () => {
+                const selectedRole = roles.find(r => r.id === roleSelect.value);
+                if (selectedRole && selectedRole.name !== user.role) {
+                    confirmButton.style.display = 'block';
+                } else {
+                    confirmButton.style.display = 'none';
+                }
+            });
         });
+        
+        roleSelectContainer.appendChild(roleSelect);
+        roleSelectContainer.appendChild(confirmButton);
+        roleContainer.appendChild(roleSelectContainer);
+    } else {
+        document.getElementById('user-role').textContent = user.role;
     }
+
+    document.querySelectorAll('.appeal-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const appealId = card.getAttribute('data-id');
+        openAppealChat(appealId);
+    });
+});
+}
+
+async function openAppealChat(appealId) {
+    try {
+        hideModal('user-details-modal');
+        
+        const chatContainer = document.getElementById('appeal-chat-container');
+        if (chatContainer) {
+            chatContainer.style.display = 'flex';
+            document.querySelector('.dashboard-content').classList.add('chat-open');
+        }
+        
+        await loadAppealChat(appealId);
+        
+    } catch (error) {
+        console.error('Ошибка открытия чата:', error);
+        showNotification('Не удалось открыть чат обращения', 'error');
+    }
+}
+
+function closeAppealChatAndReturnToUser() {
+    hideAppealChat();
+    
+    if (currentUserDetails) {
+        setTimeout(() => {
+            showModal('user-details-modal');
+        }, 300);
+    }
+}
+
+function hideAppealChat() {
+    const dashboardContent = document.querySelector('.dashboard-content');
+    const chatContainer = document.getElementById('appeal-chat-container');
+    
+    dashboardContent.classList.remove('chat-open');
+    chatContainer.style.display = 'none';
+}
+
+async function loadAppealChat(appealId) {
+    try {
+        const response = await fetch(`/messanger/appeals/${appealId}/chat`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка загрузки чата');
+        }
+        
+        const data = await response.json();
+        renderAppealChat(data, appealId);
+        
+    } catch (error) {
+        console.error('Ошибка загрузки чата:', error);
+        showNotification('Не удалось загрузить чат обращения', 'error');
+    }
+}
+
+function renderAppealChat(data, appealId) {
+    const messagesContainer = document.getElementById('appeal-messages');
+    const appealType = document.getElementById('appeal-type');
+    const appealIdElement = document.getElementById('appeal-id');
+    
+    appealType.textContent = getTypeName(data.appeal.type);
+    appealIdElement.textContent = `ID: ${data.appeal.id}`;
+    
+    messagesContainer.innerHTML = '';
+    
+    data.messages.forEach(message => {
+        const messageElement = document.createElement('div');
+        messageElement.className = message.is_system ? 'message system-message' : 
+                                message.user_id === data.appeal.user_id ? 'message user-message' : 'message admin-message';
+        
+        // Создаем HTML для вложений
+        let attachmentsHtml = '';
+        if (message.attachments && message.attachments.length > 0) {
+            attachmentsHtml = '<div class="message-attachments">';
+            
+            message.attachments.forEach((attachment, index) => {
+                if (!attachment) return;
+                
+                const imageUrl = `/messanger/appeals/${message.appeal_id}/files/${attachment}`;
+                
+                if (index === 0) {
+                    attachmentsHtml += `
+                        <div class="main-attachment">
+                            <img src="${imageUrl}" 
+                                alt="Прикрепленное изображение"
+                                onerror="this.style.display='none'"
+                        </div>`;
+                } else {
+                    if (index === 1) attachmentsHtml += '<div class="attachment-thumbnails">';
+                    attachmentsHtml += `
+                        <div class="thumbnail">
+                            <img src="${imageUrl}" 
+                                alt="Прикрепленное изображение"
+                                onerror="this.style.display='none'"
+                        </div>`;
+                }
+            });
+            
+            if (message.attachments.length > 1) attachmentsHtml += '</div>';
+            attachmentsHtml += '</div>';
+        }
+        
+        messageElement.innerHTML = `
+            <div class="message-header">
+                <strong>${message.username || 'Система'}</strong>
+                <span class="message-date">${new Date(message.created_at).toLocaleString()}</span>
+            </div>
+            ${message.message ? `<div class="message-content">${message.message}</div>` : ''}
+            ${attachmentsHtml}
+        `;
+        
+        messagesContainer.appendChild(messageElement);
+    });
+    
+    // Прокручиваем к последнему сообщению
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function showConfirmRoleChange(userId, newRoleId) {
+    const roleSelect = document.getElementById('user-role-select');
+    const selectedOption = roleSelect.options[roleSelect.selectedIndex];
+    const currentRole = document.getElementById('user-role-select').options[0].text;
+    
+    currentRoleChangeData = { userId, newRoleId, currentRole, newRole: selectedOption.text };
+    
+    document.getElementById('current-role-name').textContent = currentRole;
+    document.getElementById('new-role-name').textContent = selectedOption.text;
+    
+    showModal('confirmRoleModal');
+}
+
+function showConfirmBan(user, action) {
+    currentBanActionData = { user, action };
+    
+    const modal = document.getElementById('confirmBanModal');
+    const confirmText = document.getElementById('ban-confirm-text');
+    const reasonContainer = document.getElementById('ban-reason-container');
+    const reasonInput = document.getElementById('ban-reason');
+    
+    if (action === 'ban') {
+        confirmText.textContent = `Вы уверены, что хотите заблокировать пользователя ${user.username}?`;
+        reasonContainer.style.display = 'block';
+        reasonInput.required = true; 
+    } else if (action === 'unban') {
+        confirmText.textContent = `Вы уверены, что хотите разблокировать пользователя ${user.username}?`;
+        reasonContainer.style.display = 'none';
+        reasonInput.required = false;
+        reasonInput.value = ''; 
+    }
+    
+    showModal('confirmBanModal');
+}
+
+function showConfirmRestore(user) {
+    currentRestoreActionData = user;
+
+    const modal = document.getElementById('confirmRestoreModal');
+    const confirmText = document.getElementById('restore-confirm-text');
+    
+    confirmText.textContent = `Вы уверены, что хотите восстановить аккаунт пользователя ${user.username}?`;
+    
+    showModal('confirmRestoreModal');
 }
 
 async function loadRoles() {
@@ -517,6 +865,11 @@ async function updateUserRole(userId, newRoleId) {
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.detail || 'Ошибка при изменении роли');
+        }
+        
+        const confirmBtn = document.querySelector('.confirm-role-btn');
+        if (confirmBtn) {
+            confirmBtn.style.display = 'none';
         }
         
         return await response.json();
@@ -731,8 +1084,13 @@ async function handleRequestAction(requestId, action) {
 
 function renderPagination(containerId, currentPage, totalItems, perPage, callback) {
     const container = document.getElementById(containerId);
+    const infoContainer = document.getElementById(containerId + '-info');
     
     const totalPages = Math.ceil(totalItems / perPage);
+    
+    if (infoContainer) {
+        infoContainer.textContent = `Страница ${currentPage} из ${totalPages} (всего: ${totalItems})`;
+    }
     
     if (totalPages <= 1) {
         container.innerHTML = '';
@@ -776,7 +1134,12 @@ function renderPagination(containerId, currentPage, totalItems, perPage, callbac
     container.querySelectorAll('.page-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const page = parseInt(btn.getAttribute('data-page'));
-            callback(page);
+            
+            // Определяем активную вкладку
+            const activeTab = document.querySelector('#user-details-modal .tab-btn.active');
+            const tabName = activeTab ? activeTab.getAttribute('data-tab') : 'user-info';
+            
+            callback(page, tabName);
         });
     });
 }
@@ -853,6 +1216,26 @@ function resetFiltersLogs() {
     toggleFiltersLogs();
 }
 
+async function restoreUser(userId) {
+    try {
+        const response = await fetch(`/dashboard/admin/general/users/${userId}/restore`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Ошибка при восстановлении пользователя');
+        }
+        
+        showNotification('Пользователь успешно восстановлен', 'success');
+        return await response.json();
+    } catch (error) {
+        console.error('Failed to restore user:', error);
+        showNotification(`Ошибка: ${error.message}`, 'error');
+        throw error;
+    }
+}
 
 // Вспомогательные функции
 function getHistoryTypeName(type) {

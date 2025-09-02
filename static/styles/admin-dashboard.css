@@ -66,12 +66,33 @@
 
 /* Стили для карточек обращений */
 .appeal-card {
+    position: relative;
     background: var(--primary-background);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.2rem;
     margin-bottom: 1rem;
     transition: all 0.2s;
+}
+
+.appeal-card.assigned-to-me {
+    border-left: 4px solid var(--accent-color);
+    background: rgba(224, 1, 91, 0.05);
+}
+
+.assigned-indicator {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--accent-color);
+    border-radius: 0 0 4px 4px;
+}
+
+.appeal-card .appeal-user strong {
+    display: inline-block;
+    min-width: 100px;
 }
 
 .appeal-header {

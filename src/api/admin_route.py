@@ -1,3 +1,4 @@
+from calendar import c
 from fastapi import APIRouter, Depends, Request, HTTPException, Query, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.encoders import jsonable_encoder
@@ -10,7 +11,7 @@ from src.utils.security import SecurityUtils
 from src.models.appeal_model import AppealStatus, AppealType
 from src.models.appeal_model import Appeal, AppealAssignment
 from src.security_middleware import RoleLevelChecker, AppealPermissionChecker, PermissionLevel
-from src.services.auth_handler import get_current_user
+from src.services.auth_handler import BackgroundTasks, get_current_user
 from src.services.admin_service import AdminService, get_admin_service
 from src.schemas.dashboard_schema import ForumUrlSchema
 from src.services.logs_service import LogService, get_log_service
@@ -322,13 +323,14 @@ async def change_user_role(
     await admin_service.change_user_role(
         user_id=user_id,
         role_id=role_id,
-        current_user_level=current_user["role"]["level"]
+        current_user_level=current_user["role"]["level"],
+        current_user_id=current_user["id"]
     )
     
     await log_action(
         request=request,
         action_type=ActionType.update_role_user,
-        action_data = (
+        action_data=(
             f"Пользователь {current_user['username']} изменил уровень доступа аккаунту с ID: {user_id}"
         ),
         user_id=current_user["id"]
@@ -336,6 +338,33 @@ async def change_user_role(
     
     return {"message": "Уровень доступа для пользователя был изменен!"}
 
+@router.post("/general/users/{user_id}/restore", dependencies=[Depends(RoleLevelChecker(PermissionLevel.LEAD_ADMINISTRATOR))])
+async def restore_user(
+    request: Request,
+    user_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Восстановить удаленного пользователя (только для админов)"""
+    current_user = await get_current_user(request)
+    
+    result = await admin_service.restore_user(user_id, current_user["id"], background_tasks)
+    
+    await log_action(
+        request=request,
+        action_type=ActionType.user_restored,
+        action_data=f"Пользователь {current_user['username']} восстановил аккаунт с ID: {user_id}",
+        user_id=current_user["id"]
+    )
+    
+    return {
+        "message": "Пользователь успешно восстановлен. Email с временными данными отправлен.",
+        "temporary_password": result["temporary_password"],
+        "user_id": str(user_id),
+        "username": result["user"].username,
+        "email": result["user"].email
+    }
+    
 @router.get("/general/requests", dependencies=[Depends(RoleLevelChecker(PermissionLevel.CHIEF_CURATOR))])
 async def get_pending_requests(
     request: Request,
@@ -389,37 +418,12 @@ async def get_appeals_counters(
     request: Request,
     admin_service: AdminService = Depends(get_admin_service)
 ):
-    """Получить счетчики обращений"""
+    """Получить счетчики обращений с учетом прав доступа"""
     user = await get_current_user(request)
     if not user:
         raise HTTPException(status_code=401, detail="Не авторизован")
     
-    # Счетчик необработанных обращений
-    pending_result = await admin_service.session.execute(
-        select(func.count()).select_from(Appeal).where(
-            Appeal.status == "pending"
-        )
-    )
-    pending = pending_result.scalar() or 0
-    
-    # Счетчик обращений, назначенных текущему пользователю
-    user_assigned_result = await admin_service.session.execute(
-        select(func.count()).select_from(AppealAssignment)
-        .join(Appeal, AppealAssignment.appeal_id == Appeal.id)
-        .where(
-            and_(
-                AppealAssignment.user_id == user["id"],
-                AppealAssignment.released_at == None,
-                Appeal.status.in_(["pending", "in_progress"])
-            )
-        )
-    )
-    user_assigned = user_assigned_result.scalar() or 0
-    
-    return {
-        "pending": pending,
-        "user_assigned": user_assigned
-    }
+    return await admin_service.get_appeals_counters(user)
 
 @router.post("/appeals/{appeal_id}/force-close", dependencies=[Depends(RoleLevelChecker(PermissionLevel.CHIEF_CURATOR))])
 async def force_close_appeal(

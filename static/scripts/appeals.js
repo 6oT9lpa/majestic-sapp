@@ -105,8 +105,8 @@ function validateAppealForm(type, form) {
         const description = form.querySelector('#help-description');
         
         // Валидация никнейма
-        if (!nickname.value || !/^[a-zA-Z0-9]{3,20}$/.test(nickname.value)) {
-            showFieldError(nickname, 'Никнейм должен содержать 3-20 символов (буквы, цифры)');
+        if (!nickname.value || !/^[a-zA-Z0-9_ .]{3,50}$/.test(nickname.value)) {
+            showFieldError(nickname, 'Ваш никнейм может содержать только латинские буквы, цифры, пробелы и точки.');
             isValid = false;
         }
         
@@ -135,8 +135,8 @@ function validateAppealForm(type, form) {
         const description = form.querySelector('#complaint-description');
         
         // Валидация никнейма пользователя
-        if (!nickname.value || !/^[a-zA-Z0-9]{3,20}$/.test(nickname.value)) {
-            showFieldError(nickname, 'Ваш никнейм должен содержать 3-20 символов (буквы, цифры)');
+        if (!nickname.value || !/^[a-zA-Z0-9_ .]{3,50}$/.test(nickname.value)) {
+            showFieldError(nickname, 'Ваш никнейм может содержать только латинские буквы, цифры, пробелы и точки.');
             isValid = false;
         }
         
@@ -171,8 +171,8 @@ function validateAppealForm(type, form) {
         const description = form.querySelector('#amnesty-description');
 
         // Валидация никнейма пользователя
-        if (!nickname.value || !/^[a-zA-Z0-9]{3,20}$/.test(nickname.value)) {
-            showFieldError(nickname, 'Ваш никнейм должен содержать 3-20 символов (буквы, цифры)');
+        if (!nickname.value || !/^[a-zA-Z0-9_ .]{3,50}$/.test(nickname.value)) {
+            showFieldError(nickname, 'Ваш никнейм может содержать только латинские буквы, цифры, пробелы и точки.');
             isValid = false;
         }
         
@@ -183,8 +183,8 @@ function validateAppealForm(type, form) {
         }
 
         // Валидация никнейма администратора
-        if (adminNickname.value && !/^[a-zA-Z0-9]{3,50}$/.test(adminNickname.value)) {
-            showFieldError(adminNickname, 'Никнейм должен содержать 3-50 символов (буквы, цифры)');
+        if (adminNickname.value && !/^[a-zA-Z0-9_ .]{3,50}$/.test(adminNickname.value)) {
+            showFieldError(adminNickname, 'Никнейм модератора должен содержать 3-50 символов (буквы, цифры, пробелы и точки)');
             isValid = false;
         }
 

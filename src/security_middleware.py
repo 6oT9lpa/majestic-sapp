@@ -97,19 +97,21 @@ class AppealPermissionChecker(BasePermissionChecker):
 
     @staticmethod
     def get_allowed_statuses(user: dict, appeal_type: str) -> List[str]:
+        """Возвращает список статусов, которые пользователь может видеть"""
         allowed_statuses = []
         
+        allowed_statuses.extend(["resolved", "rejected"])
+        
         if appeal_type == "help" and SecurityUtils.has_permission_by_name(user, "respond_support_tickets"):
-            allowed_statuses.append("pending")
+            allowed_statuses.extend(["pending", "in_progress"])
         elif appeal_type == "complaint" and SecurityUtils.has_permission_by_name(user, "respond_moderation_complaints"):
-            allowed_statuses.append("pending")
+            allowed_statuses.extend(["pending", "in_progress"])
         elif appeal_type == "amnesty" and SecurityUtils.has_permission_by_name(user, "respond_amnesty_requests"):
-            allowed_statuses.append("pending")
-            
+            allowed_statuses.extend(["pending", "in_progress"])
+        
         if SecurityUtils.has_permission_by_name(user, "view_active_chats"):
             allowed_statuses.extend(["pending", "in_progress"])
         
-        allowed_statuses.extend(["resolved", "rejected"])
         return list(set(allowed_statuses))
     
     @staticmethod

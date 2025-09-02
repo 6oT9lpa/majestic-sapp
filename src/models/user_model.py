@@ -1,6 +1,8 @@
+from sqlite3 import Date
+import time
 import uuid
 from src.models.base_model import Base
-from sqlalchemy import String, ForeignKey, UUID, Boolean, DateTime, func, TIMESTAMP, JSON, Integer, Text
+from sqlalchemy import Column, String, ForeignKey, UUID, Boolean, DateTime, func, TIMESTAMP, JSON, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 from typing import Dict
@@ -38,11 +40,24 @@ class User(Base):
         DateTime(timezone=True), 
         server_default=func.now()
     )
+    
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
+    )
+
+    deleted_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),
+        nullable=True
+    )
+    
     created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
         server_default=func.now()
     )
 
+    deleted_by_user = relationship("User", remote_side="User.id", foreign_keys=[deleted_by])
     override_permission = relationship("UserPermissionOverride", lazy="joined")
     role = relationship("Role", lazy="joined")
     appeals = relationship("Appeal", back_populates="user", lazy="joined")
@@ -236,4 +251,3 @@ class UserBan(Base):
     
     user = relationship("User", foreign_keys=[user_id])
     moderator = relationship("User", foreign_keys=[banned_by])
-

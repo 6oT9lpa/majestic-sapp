@@ -238,25 +238,72 @@ function updateCounters(counters) {
 }
 
 async function forceCloseAppeal(appealId) {
-    const reason = prompt('Укажите причину принудительного закрытия:');
-    if (!reason) return;
+    const modal = document.getElementById('confirmModal');
+    const closeReasonTextarea = document.getElementById('close-reason');
+    const confirmBtn = document.querySelector('.confirm-btn');
+    const cancelBtn = document.querySelector('.cancel-confirm-btn');
     
-    try {
-        const formData = new URLSearchParams();
-        formData.append('reason', reason);
+    closeReasonTextarea.value = '';
+    
+    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+    
+    return new Promise((resolve) => {
+        const confirmHandler = async () => {
+            const reason = closeReasonTextarea.value.trim();
+            
+            if (!reason) {
+                showNotification('Укажите причину закрытия', 'error');
+                return;
+            }
+            
+            try {
+                const formData = new URLSearchParams();
+                formData.append('reason', reason);
+                
+                const response = await fetch(`/dashboard/admin/appeals/${appealId}/force-close?${formData.toString()}`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) throw new Error('Ошибка закрытия');
+                
+                showNotification('Обращение принудительно закрыто', 'success');
+                loadAppeals(currentFilters.tabId);
+                
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+                
+                resolve(true);
+            } catch (error) {
+                showNotification(error.message, 'error');
+                resolve(false);
+            }
+        };
         
-        const response = await fetch(`/dashboard/admin/appeals/${appealId}/force-close?${formData.toString()}`, {
-            method: 'POST',
-            credentials: 'include'
-        });
+        const cancelHandler = () => {
+            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            resolve(false);
+        };
         
-        if (!response.ok) throw new Error('Ошибка закрытия');
+        confirmBtn.removeEventListener('click', confirmHandler);
+        cancelBtn.removeEventListener('click', cancelHandler);
+        document.querySelector('.close-modal').removeEventListener('click', cancelHandler);
         
-        showNotification('Обращение принудительно закрыто', 'success');
-        loadAppeals(currentFilters.tabId);
-    } catch (error) {
-        showNotification(error.message, 'error');
-    }
+        confirmBtn.addEventListener('click', confirmHandler);
+        cancelBtn.addEventListener('click', cancelHandler);
+        document.querySelector('.close-modal').addEventListener('click', cancelHandler);
+        
+        const outsideClickHandler = (e) => {
+            if (e.target === modal) {
+                cancelHandler();
+            }
+        };
+        
+        modal.removeEventListener('click', outsideClickHandler);
+        modal.addEventListener('click', outsideClickHandler);
+    });
 }
 
 async function showReassignToModal(appealId) {
@@ -269,54 +316,73 @@ async function showReassignToModal(appealId) {
         
         const moderators = await response.json();
         
-        const modal = document.createElement('div');
-        modal.className = 'modal reassign-modal';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <h3>Переназначить на модератора</h3>
-                <select id="moderator-select" class="modal-select">
-                    <option value="">Выберите модератора</option>
-                    ${moderators.map(m => `<option value="${m.id}">${m.username} (${m.role_name})</option>`).join('')}
-                </select>
-                <div class="modal-actions">
-                    <button class="modal-btn primary" id="confirm-reassign">Переназначить</button>
-                    <button class="modal-btn secondary" id="cancel-reassign">Отмена</button>
-                </div>
-            </div>
-        `;
+        const modal = document.getElementById('reassignModal');
+        const moderatorSelect = document.getElementById('moderator-select');
+        const confirmBtn = document.querySelector('.confirm-reassign-btn');
+        const cancelBtn = document.querySelector('.cancel-reassign-btn');
         
-        document.body.appendChild(modal);
+        moderatorSelect.innerHTML = '<option value="">Выберите модератора</option>' +
+            moderators.map(m => `<option value="${m.id}">${m.username} (${m.role_name})</option>`).join('');
         
-        document.getElementById('confirm-reassign').addEventListener('click', async () => {
-            const select = document.getElementById('moderator-select');
-            const moderatorId = select.value;
+        
+        modal.style.display = 'flex';
+        modal.classList.remove('hidden');
+        
+        return new Promise((resolve) => {
+            const confirmHandler = async () => {
+                const moderatorId = moderatorSelect.value;
+                
+                if (!moderatorId) {
+                    showNotification('Выберите модератора', 'error');
+                    return;
+                }
+                
+                try {
+                    const formData = new URLSearchParams();
+                    formData.append('moderator_id', moderatorId);
+                    
+                    const response = await fetch(`/dashboard/admin/appeals/${appealId}/reassign-to?${formData.toString()}`, {
+                        method: 'POST',
+                        credentials: 'include'
+                    });
+                    
+                    if (!response.ok) throw new Error('Ошибка переназначения');
+                    
+                    showNotification('Обращение переназначено', 'success');
+                    
+                    modal.style.display = 'none';
+                    modal.classList.add('hidden');
+                    
+                    loadAppeals(currentFilters.tabId);
+                    resolve(true);
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                    resolve(false);
+                }
+            };
             
-            if (!moderatorId) {
-                showNotification('Выберите модератора', 'error');
-                return;
-            }
+            const cancelHandler = () => {
+                modal.style.display = 'none';
+                modal.classList.add('hidden');
+                resolve(false);
+            };
             
-            try {
-                const formData = new URLSearchParams();
-                formData.append('moderator_id', moderatorId);
-                
-                const response = await fetch(`/dashboard/admin/appeals/${appealId}/reassign-to?${formData.toString()}`, {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                
-                if (!response.ok) throw new Error('Ошибка переназначения');
-                
-                showNotification('Обращение переназначено', 'success');
-                modal.remove();
-                loadAppeals(currentFilters.tabId);
-            } catch (error) {
-                showNotification(error.message, 'error');
-            }
-        });
-        
-        document.getElementById('cancel-reassign').addEventListener('click', () => {
-            modal.remove();
+            confirmBtn.removeEventListener('click', confirmHandler);
+            cancelBtn.removeEventListener('click', cancelHandler);
+            document.querySelector('#reassignModal .close-modal').removeEventListener('click', cancelHandler);
+            
+            confirmBtn.addEventListener('click', confirmHandler);
+            cancelBtn.addEventListener('click', cancelHandler);
+            document.querySelector('#reassignModal .close-modal').addEventListener('click', cancelHandler);
+            
+            const outsideClickHandler = (e) => {
+                if (e.target === modal) {
+                    cancelHandler();
+                }
+            };
+            
+            modal.removeEventListener('click', outsideClickHandler);
+            modal.addEventListener('click', outsideClickHandler);
         });
         
     } catch (error) {
@@ -520,6 +586,7 @@ async function loadAppeals(tabId, page = 1) {
 
         const data = await response.json();
         renderAppeals(appealsListContainer, data.appeals, tabId, data.total_pages, page);
+        
     } catch (error) {
         appealsListContainer.innerHTML = `
             <div class="no-appeals">Ошибка загрузки: ${error.message}</div>
@@ -535,12 +602,26 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
 
     let html = '';
 
+    // Сортируем обращения: сначала назначенные текущему пользователю, потом остальные
+    appeals.sort((a, b) => {
+        const aIsAssigned = a.assigned_to === currentUser.username;
+        const bIsAssigned = b.assigned_to === currentUser.username;
+        
+        if (aIsAssigned && !bIsAssigned) return -1;
+        if (!aIsAssigned && bIsAssigned) return 1;
+        return new Date(b.created_at) - new Date(a.created_at);
+    });
+
     appeals.forEach(appeal => {
         const date = new Date(appeal.created_at).toLocaleString();
         const canForceClose = currentUser.role.level >= 6;
+        const isCompleted = ['resolved', 'rejected'].includes(appeal.status);
+        const isActiveTab = tabId === 'appeals-active';
+        const isAssignedToMe = appeal.assigned_to === currentUser.username;
         
         html += `
-            <div class="appeal-card" data-id="${appeal.id}">
+            <div class="appeal-card ${isAssignedToMe ? 'assigned-to-me' : ''}" data-id="${appeal.id}">
+                ${isAssignedToMe ? '<div class="assigned-indicator"></div>' : ''}
                 <div class="appeal-header">
                     <div class="group-appeal-header">
                         <span class="appeal-type">${getTypeName(appeal.type)}</span>
@@ -557,7 +638,7 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
                 <div class="appeal-footer">
                     <span class="appeal-date">${date}</span>
                     <div class="appeal-actions">
-                        ${canForceClose ? `
+                        ${canForceClose && isActiveTab && !isCompleted ? `
                         <button class="action-btn danger-action force-close-btn" data-id="${appeal.id}">
                             Принудительно закрыть
                         </button>
@@ -566,7 +647,7 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
                         </button>
                         ` : ''}
                         <button class="action-btn secondary-action take-btn" data-id="${appeal.id}">
-                            Открыть
+                            ${isCompleted ? 'Просмотреть' : 'Открыть'}
                         </button>
                     </div>
                 </div>
@@ -588,19 +669,22 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
         });
     });
 
-    document.querySelectorAll('.force-close-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const appealId = btn.getAttribute('data-id');
-            forceCloseAppeal(appealId);
+    // Добавляем обработчики только для активных обращений
+    if (tabId === 'appeals-active') {
+        document.querySelectorAll('.force-close-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const appealId = btn.getAttribute('data-id');
+                forceCloseAppeal(appealId);
+            });
         });
-    });
-    
-    document.querySelectorAll('.reassign-to-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const appealId = btn.getAttribute('data-id');
-            showReassignToModal(appealId);
+        
+        document.querySelectorAll('.reassign-to-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const appealId = btn.getAttribute('data-id');
+                showReassignToModal(appealId);
+            });
         });
-    });
+    }
 }
 
 async function loadDeletedAccounts(page = 1) {

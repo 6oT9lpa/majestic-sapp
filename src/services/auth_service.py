@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_, func
 from fastapi import BackgroundTasks
 import jwt
 import uuid
@@ -8,7 +8,7 @@ import json
 
 from src.database import get_session
 from src.schemas.user_schema import UserCreate, UserLogin, ChangePaswRequest, ChangeUsernameRequest
-from src.models.user_model import User, UserRequest, UserRequestType
+from src.models.user_model import User, UserRequest, UserRequestType, UserBan
 from src.config import Config
 from src.services.auth_handler import (
     verify_password,
@@ -171,6 +171,30 @@ class AuthService:
                 detail='Логин или пароль неверны',
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        
+        
+        async for session in get_session():
+            # Проверяем, не заблокирован ли пользователь
+            ban_result = await session.execute(
+                select(UserBan)
+                .where(
+                    and_(
+                        UserBan.user_id == User.id,
+                        UserBan.is_active == True,
+                        or_(
+                            UserBan.expires_at == None,
+                            UserBan.expires_at > func.now()
+                        )
+                    )
+                )
+            )
+            ban = ban_result.scalar()
+            
+            if ban:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Ваш аккаунт заблокирован. Причина: {ban.reason}"
+                )
         
         if not user.is_active:
             raise HTTPException(

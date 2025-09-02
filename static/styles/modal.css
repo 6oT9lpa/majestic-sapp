@@ -56,6 +56,7 @@
     margin-top: 20px;
     margin-bottom: 30px;
     border-bottom: 1px solid var(--border-color);
+    z-index: 9999;
 }
 
 /* Стили кнопок переключения вкладок */
@@ -234,4 +235,135 @@ input[readonly] {
     .tab-indicator {
         display: none;
     }
+}
+
+.confirm-modal {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.confirm-modal .modal-content {
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    padding: 1.2rem 2rem 2rem;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    text-align: center;
+    animation: scaleIn 0.25s ease;
+}
+
+.confirm-modal .modal-header {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    top: 0;
+}
+
+.confirm-modal .modal-header::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: -2rem;  
+    right: -2rem;
+    height: 1px;
+    background: var(--border-color);
+}
+
+.confirm-modal .modal-header h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--primary-text);
+    margin: 0;
+}
+
+.confirm-modal .close-modal {
+    font-size: 22px;
+    color: var(--second-text);
+    cursor: pointer;
+    transition: color 0.2s;
+    top: 0;
+    right: 0;
+}
+
+.confirm-modal .close-modal:hover {
+    color: var(--accent-color);
+}
+
+.confirm-modal .modal-body {
+    margin-bottom: 2rem;
+    color: var(--second-text);
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.confirm-modal .modal-footer {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.confirm-modal .primary-btn {
+    background: var(--accent-color);
+    color: #fff;
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.confirm-modal .primary-btn:hover {
+    background: #c00050;
+}
+
+.confirm-modal .secondary-btn {
+    background: var(--second-background);
+    color: var(--primary-text);
+    padding: 0.7rem 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.confirm-modal .secondary-btn:hover {
+    background: var(--primary-background);
+}
+
+.confirm-modal .form-group {
+    margin-top: 1rem;
+}
+
+.confirm-modal .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--primary-text);
+    font-weight: 500;
+    text-align: left;
+}
+
+.confirm-modal .form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--second-background);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--primary-text);
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.confirm-modal .form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
 }

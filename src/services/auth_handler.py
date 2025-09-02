@@ -1,28 +1,51 @@
 from datetime import datetime, timedelta
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Set
 from sqlalchemy import select, or_, and_, func
 from fastapi.security import HTTPBearer
 from passlib.context import CryptContext
-from fastapi import HTTPException, status, Response, Request
+from fastapi import HTTPException, status, Response, Request, BackgroundTasks
 import uuid
 import jwt
+import asyncio
+import secrets
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.config import Config
 from src.schemas.user_schema import Token
 from src.models.user_model import User, UserBan
 from src.models.role_model import Role
-
 from src.database import get_session
 
 security = HTTPBearer()
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+async def check_user_ban(user_id: uuid.UUID, session: AsyncSession) -> Optional[UserBan]:
+    """Проверяет, заблокирован ли пользователь"""
+    ban_result = await session.execute(
+        select(UserBan)
+        .where(
+            and_(
+                UserBan.user_id == user_id,
+                UserBan.is_active == True,
+                or_(
+                    UserBan.expires_at == None,
+                    UserBan.expires_at > func.now()
+                )
+            )
+        )
+    )
+    return ban_result.scalar()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
+
+def generate_temporary_password(length=12):
+    """Генерирует временный пароль"""
+    alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
@@ -107,6 +130,16 @@ async def get_current_user(request: Request, raise_exception: bool = True) -> di
         user_id = uuid.UUID(payload.get("sub"))
         
         async for session in get_session():
+            payload = decode_token(token)
+            
+            if payload.get("type") == "refresh":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Refresh token cannot be used as access token"
+                )
+            
+            user_id = uuid.UUID(payload.get("sub"))
+            
             # Проверяем, не заблокирован ли пользователь
             ban_result = await session.execute(
                 select(UserBan)
@@ -142,9 +175,16 @@ async def get_current_user(request: Request, raise_exception: bool = True) -> di
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="User not found"
                 )
+            
+            # Проверяем, не удален ли пользователь мягко
+            if not user.is_active and user.deleted_at:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Ваш аккаунт был деактивирован по вашему запросу"
+                )
                 
             user.last_login = datetime.now()
-            session.commit()
+            await session.commit()
             
             return {
                 "id": user.id,
@@ -177,14 +217,15 @@ async def get_current_user(request: Request, raise_exception: bool = True) -> di
 async def get_current_user_websoket(token: str) -> dict:
     """Получает пользователя из access token"""
     try:
-        payload = decode_token(token)
-        
-        if payload.get("type") == "refresh":
-            raise Exception("Refresh token cannot be used as access token")
-        
-        user_id = uuid.UUID(payload.get("sub"))
-        
         async for session in get_session():
+            
+            payload = decode_token(token)
+            
+            if payload.get("type") == "refresh":
+                raise Exception("Refresh token cannot be used as access token")
+            
+            user_id = uuid.UUID(payload.get("sub"))
+            
             result = await session.execute(
                 select(User, Role)
                 .join(Role, User.role_id == Role.id)
@@ -216,6 +257,82 @@ async def get_current_user_websoket(token: str) -> dict:
         raise Exception("Недействительный токен")
     except Exception as e:
         raise Exception(f"Ошибка авторизации: {str(e)}")
+
+async def get_current_user_without_ban_check(request: Request, raise_exception: bool = True) -> dict:
+    """Получает пользователя из access token cookie БЕЗ проверки блокировки"""
+    token = request.cookies.get("access_token")
+    if not token:
+        if raise_exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated"
+            )
+        return None
+    
+    try:
+        payload = decode_token(token)
+        
+        if payload.get("type") == "refresh":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token cannot be used as access token"
+            )
+        
+        user_id = uuid.UUID(payload.get("sub"))
+        
+        async for session in get_session():
+            result = await session.execute(
+                select(User, Role)
+                .join(Role, User.role_id == Role.id)
+                .where(User.id == user_id)
+            )
+            user, role = result.first()
+            
+            if not user:
+                if raise_exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="User not found"
+                    )
+                return None
+            
+            if not user.is_active and user.deleted_at:
+                if raise_exception:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Ваш аккаунт был деактивирован по вашему запросу"
+                    )
+                return None
+                
+            user.last_login = datetime.now()
+            await session.commit()
+            
+            return {
+                "id": user.id,
+                "email": user.email,
+                "username": user.username,
+                "role": {
+                    "id": role.id,
+                    "level": role.level,
+                    "permissions": role.permissions,
+                    "name": role.name
+                },
+                "is_active": user.is_active,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "created_at": user.created_at
+            }
+            
+    except HTTPException:
+        if raise_exception:
+            raise
+        return None
+    except Exception as e:
+        if raise_exception:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Internal authentication error: {str(e)}"
+            )
+        return None
 
 async def get_username_by_id(user_id: uuid.UUID) -> dict:
     async for session in get_session():
