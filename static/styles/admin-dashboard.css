@@ -687,94 +687,8 @@
     text-decoration: underline;
 }
 
-#account-comment-edit {
-    width: 100%;
-    padding: 0.8rem;
-    background: var(--primary-background);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    color: var(--primary-text);
-    resize: vertical;
-    margin-bottom: 1rem;
-}
-
-.file-upload {
-    margin-bottom: 1rem;
-}
-
-.file-upload-label {
-    display: inline-block;
-    padding: 0.5rem 1rem;
-    background: var(--accent-color);
-    color: white;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.file-upload-label:hover {
-    background: #c00050;
-}
-
-/* Стили для загруженных файлов */
-.uploaded-file {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background: var(--second-background);
-    border-radius: 5px;
-    margin-bottom: 0.5rem;
-    border: 1px solid var(--border-color);
-}
-
-.uploaded-file img {
-    width: 40px;
-    height: 40px;
-    object-fit: cover;
-    border-radius: 3px;
-}
-
-.uploaded-file-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.uploaded-file-name {
-    font-size: 0.9rem;
-    color: var(--primary-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.uploaded-file-size {
-    font-size: 0.8rem;
-    color: var(--second-text);
-}
-
-.file-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.file-action-btn {
-    padding: 0.3rem;
-    background: transparent;
-    border: none;
-    border-radius: 3px;
-    cursor: pointer;
-    color: var(--second-text);
-    transition: color 0.2s;
-}
-
-.file-action-btn:hover {
-    color: var(--accent-color);
-}
-
-.remove-file {
-    color: var(--status-rejected-text);
-    cursor: pointer;
+.comment-display {
+    text-align: justify;
 }
 
 .logs-list {
@@ -800,6 +714,7 @@
 .log-type {
     font-weight: 500;
     color: var(--accent-color);
+        font-size: 14px;
 }
 
 .log-date {

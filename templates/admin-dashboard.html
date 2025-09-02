@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="{{ url_for('static', path='styles/tooltip.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/navbar.css?v=0.0.5') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='styles/messanger.css?v=0.0.13') }}">
-    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.32') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='styles/admin-dashboard.css?v=0.0.35') }}">
 </head>
 <body>
     <div class="dashboard-container">
@@ -228,7 +228,7 @@
                     <div class="accounts-list-section">
                         <div class="section-header">
                             <h3>Аккаунты</h3>
-                            <button class="primary-btn small-btn" id="add-account-btn">
+                            <button class="primary-btn small-btn" id="add-account-btn" onclick='showModal("add-account-modal");'>
                                 <i class="fas fa-plus"></i> Добавить аккаунт
                             </button>
                         </div>
@@ -239,7 +239,9 @@
                     
                     <div class="comment-section">
                         <h3>Комментарий</h3>
-                        <textarea id="account-comment-modal" placeholder="Комментарий..." maxlength="500" rows="5"></textarea>
+                        <div id="account-comment-modal" class="comment-display">
+                            <span class="no-comment">[Нет комментария]</span>
+                        </div>
                     </div>
                 </div>
                 
@@ -381,8 +383,8 @@
     </script>
 
     <!-- Подключение скриптов -->
-    <script src="{{ url_for('static', path='scripts/root.js?v=0.0.5') }}"></script>
+    <script src="{{ url_for('static', path='scripts/root.js?v=0.0.25') }}"></script>
     <script src="{{ url_for('static', path='scripts/messanger.js?v=0.0.60') }}"></script>
-    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.85') }}"></script>
+    <script src="{{ url_for('static', path='scripts/admin-dashboard.js?v=0.0.92') }}"></script>
 </body>
 </html>

@@ -258,6 +258,43 @@ async def set_main_account(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@router.post("/multi-accounts/add-account", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MULTI_ACCOUNT_MODERATOR))])
+async def add_account_to_multi(
+    request: Request,
+    data: dict,
+    admin_service: AdminService = Depends(get_admin_service)
+):
+    """Добавить аккаунт к существующей записи мультиаккаунтов"""
+    try:
+        user = await get_current_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="Не авторизован")
+        
+        await admin_service.add_account_to_multi(
+            multi_account_id=uuid.UUID(data['multi_account_id']),
+            account_url=data['account_url'],
+            account_id=data['account_id'],
+            account_name=data['account_name'],
+            account_type=data['account_type'],
+            current_user=user
+        )
+        
+        await log_action(
+            request=request,
+            action_type=ActionType.multi_account_updated,
+            action_data={
+                "action": "account_added",
+                "account_id": data['account_id'],
+                "account_url": data['account_url'],
+                "account_type": data['account_type']
+            },
+            user_id=user["id"]
+        )
+        
+        return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
 @router.get("/general", dependencies=[Depends(RoleLevelChecker(PermissionLevel.MODERATOR_SUPERVISOR))])
 async def get_general(request: Request):
     user = await get_current_user(request)

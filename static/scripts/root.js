@@ -276,16 +276,20 @@ function initTabs(tabButtonsSelector, tabContentsSelector, indicatorSelector, op
             dropdownItems.forEach(item => item.classList.remove('active'));
         }
 
-        if (element) {
+        if (element && element.classList.contains('dropdown-item')) {
+            if (dropdownBtn) {
+                dropdownBtn.innerHTML = element.textContent +
+                    `<svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`;
+                dropdownBtn.classList.add('active');
+            }
             element.classList.add('active');
-
-            if (dropdownItems.length > 0 && element.classList.contains('dropdown-item')) {
-                if (dropdownBtn) {
-                    dropdownBtn.innerHTML = element.textContent +
-                        `<svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>`;
-                }
+        } 
+        else if (element) {
+            element.classList.add('active');
+            if (dropdownBtn) {
+                dropdownBtn.classList.remove('active');
             }
         } else {
             const dropdownItem = document.querySelector(`.dropdown-item[data-tab="${tabId}"]`);

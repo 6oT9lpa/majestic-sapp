@@ -476,6 +476,55 @@ class AdminService:
         
         await self.session.commit()
     
+    async def add_account_to_multi(
+        self,
+        multi_account_id: uuid.UUID,
+        account_url: str,
+        account_id: int,
+        account_name: str,
+        account_type: str,
+        current_user: Dict
+    ):
+        """Добавить аккаунт к существующей записи мультиаккаунтов"""
+        account = await self.session.get(MultiAccount, multi_account_id)
+        if not account:
+            raise HTTPException(status_code=404, detail="Запись не найдена")
+
+        if account.main_account_id == account_id:
+            raise HTTPException(status_code=400, detail="Аккаунт уже является основным")
+        
+        for existing_account in account.accounts_data:
+            if existing_account.get('id') == account_id:
+                raise HTTPException(status_code=400, detail="Аккаунт уже добавлен")
+        
+        new_account = {
+            'url': account_url,
+            'name': account_name,
+            'id': account_id,
+            'type': account_type
+        }
+        
+        updated_accounts = account.accounts_data + [new_account]
+        account.accounts_data = updated_accounts
+        account.updated_at = func.now()
+        
+        self.session.add(account)
+        
+        log = MultiAccountLog(
+            multi_account_id=multi_account_id,
+            action_type="account_added",
+            action_details={
+                "account_id": account_id,
+                "account_url": account_url,
+                "account_name": account_name,
+                "account_type": account_type
+            },
+            changed_by=current_user["id"]
+        )
+        self.session.add(log)
+        
+        await self.session.commit()
+    
     async def get_users(
         self,
         page: int = 1,

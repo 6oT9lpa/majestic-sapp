@@ -1,14 +1,18 @@
 document.addEventListener('DOMContentLoaded', async () => {
-    initTabs('.tab-btn', '.tab-content', '.tab-indicator');
-    await initFilters();
+    initTabs('.tab-btn, .dropdown-item', '.tab-content', '.tab-indicator', {
+        onTabChange: (tabId) => {
+            if (tabId === 'appeals-active' || tabId === 'appeals-closed') {
+                loadAppeals(tabId);
+            } else if (tabId === 'multi-accounts') {
+                loadMultiAccounts();
+            }
+        },
+        dropdownBtn: "#appeals-dropdown",
+        dropdownItems: "#appeals-dropdown ~ .dropdown-content .dropdown-item",
+        saveToLocalStorage: 'adminActiveTab',
+    });
 
-    const savedTab = localStorage.getItem('activeAdminTab');
-    if (savedTab) {
-        const tabElement = document.querySelector(`[data-tab="${savedTab}"]`);
-        if (tabElement) {
-            tabElement.click();
-        }
-    }
+    await initFilters();
 
     document.querySelectorAll('#search-input').forEach(input => {
         input.addEventListener('keyup', function(e) {
@@ -135,15 +139,79 @@ document.addEventListener('DOMContentLoaded', async () => {
                 removeDoubleClickHandlers();
                 currentMultiAccountData = null;
                 
-                // Очищаем поле с ID
                 document.getElementById('edit-account-id').value = '';
                 
-                // Очищаем список файлов
+                const commentTextarea = document.getElementById('account-comment-modal');
+                commentTextarea.value = '';
+                commentTextarea.placeholder = '[Нет комментария]';
+                
                 document.getElementById('uploaded-files-list').innerHTML = '';
                 document.getElementById('file-upload-input').value = '';
             }
             hideModal(modal.id);
         });
+    });
+
+    document.querySelector('.confirm-add-btn')?.addEventListener('click', async () => {
+        const accountUrl = document.getElementById('new-account-url').value.trim();
+        const accountType = document.getElementById('new-account-type').value;
+        const multiAccountId = document.getElementById('edit-account-id').value;
+
+        if (!accountUrl) {
+            showNotification('Введите ссылку на аккаунт', 'error');
+            return;
+        }
+
+        if (!accountUrl.startsWith('https://forum.majestic-rp.ru/members/')) {
+            showNotification('Некорректный формат ссылки', 'error');
+            return;
+        }
+
+        try {
+            // Извлекаем данные из URL
+            const path = new URL(accountUrl).pathname;
+            const parts = path.split('/').filter(p => p);
+            const lastPart = parts[parts.length - 1];
+            const [username, idStr] = lastPart.split('.');
+            const accountId = parseInt(idStr);
+
+            if (!accountId) {
+                throw new Error('Не удалось извлечь ID из URL');
+            }
+
+            // Отправляем запрос на сервер
+            const response = await fetch('/dashboard/admin/multi-accounts/add-account', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    multi_account_id: multiAccountId,
+                    account_url: accountUrl,
+                    account_id: accountId,
+                    account_name: username,
+                    account_type: accountType
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Ошибка добавления аккаунта');
+            }
+
+            showNotification('Аккаунт успешно добавлен', 'success');
+            hideModal('add-account-modal');
+            
+            // Очищаем поля
+            document.getElementById('new-account-url').value = '';
+            
+            // Перезагружаем данные
+            showMultiAccountDetails(multiAccountId);
+
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
     });
 
     initAppealsListWebSocket();
@@ -433,138 +501,6 @@ async function showReassignToModal(appealId) {
 
 function saveFiltersToStorage() {
     localStorage.setItem('appealsFilters', JSON.stringify(currentFilters));
-}
-
-function initTabs(tabButtonsSelector, tabContentsSelector, indicatorSelector) {
-    const tabBtns = document.querySelectorAll(tabButtonsSelector);
-    const tabContents = document.querySelectorAll(tabContentsSelector);
-    const tabIndicator = document.querySelector(indicatorSelector);
-    const dropdownBtn = document.getElementById('appeals-dropdown');
-    const dropdown = dropdownBtn?.closest('.dropdown');
-    const dropdownItems = document.querySelectorAll('.dropdown-item');
-    
-    const isMobileScreen = () => window.innerWidth <= 768;
-    
-    // Удаляем старые обработчики и добавляем новые
-    tabBtns.forEach(btn => {
-        btn.removeEventListener('click', handleTabClick);
-        btn.addEventListener('click', handleTabClick);
-    });
-
-    function handleTabClick() {
-        const tabId = this.getAttribute('data-tab');
-        activateTab(tabId, this);
-    }
-    
-    function activateTab(tabId, element = null) {
-        localStorage.setItem('activeAdminTab', tabId);
-
-        const currentActiveTab = document.querySelector(`${tabButtonsSelector}.active`);
-        
-        if (currentActiveTab === (element || document.querySelector(`${tabButtonsSelector}[data-tab="${tabId}"]`))) {
-            return;
-        }
-        
-        tabBtns.forEach(b => b.classList.remove('active'));
-        dropdownItems.forEach(item => item.classList.remove('active'));
-        
-        if (element) {
-            element.classList.add('active');
-            
-            if (element.classList.contains('dropdown-item')) {
-                dropdownBtn.innerHTML = element.textContent + 
-                    `<svg class="dropdown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`;
-            }
-        } else {
-            const dropdownItem = document.querySelector(`.dropdown-item[data-tab="${tabId}"]`);
-            if (dropdownItem) dropdownItem.classList.add('active');
-        }
-        
-        if (!isMobileScreen()) {
-            const targetElement = element || document.querySelector(`${tabButtonsSelector}[data-tab="${tabId}"]`);
-            if (targetElement) {
-                tabIndicator.style.display = 'block';
-                let leftPosition = targetElement.offsetLeft;
-                let width = targetElement.offsetWidth;
-                
-                if (element && element.classList.contains('dropdown-item')) {
-                    leftPosition += 5;
-                    width -= 10;
-                }
-                
-                tabIndicator.style.width = `${width}px`;
-                tabIndicator.style.left = `${leftPosition}px`;
-            }
-        } else {
-            tabIndicator.style.display = 'none';
-        }
-        
-        tabContents.forEach(content => {
-            content.classList.remove('active');
-            if(content.id === `${tabId}-tab`) {
-                content.classList.add('active');
-                
-                if (tabId === 'appeals-active' || tabId === 'appeals-closed') {
-                    loadAppeals(tabId);
-                } else if (tabId === 'multi-accounts') {
-                    loadMultiAccounts();
-                }
-            }
-        });
-    }
-    
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabId = btn.getAttribute('data-tab');
-            activateTab(tabId, btn);
-        });
-    });
-    
-    if (dropdownBtn) {
-        dropdownBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            dropdown.classList.toggle('active');
-        });
-        
-        dropdownItems.forEach(item => {
-            item.addEventListener('click', function() {
-                const tabId = this.getAttribute('data-tab');
-                activateTab(tabId, this);
-                dropdown.classList.remove('active');
-            });
-        });
-    }
-
-    document.addEventListener('click', function() {
-        if (dropdown) dropdown.classList.remove('active');
-    });
-    
-    window.addEventListener('resize', () => {
-        if (isMobileScreen()) {
-            if (tabIndicator) {
-                tabIndicator.style.display = 'none';
-            }
-        } else {
-            const activeTab = document.querySelector(`${tabButtonsSelector}.active`) || 
-                            document.querySelector('.dropdown-item.active');
-            if (activeTab && activeTab.getAttribute('data-tab') !== 'settings') {
-                tabIndicator.style.display = 'block';
-                tabIndicator.style.width = `${activeTab.offsetWidth}px`;
-                tabIndicator.style.left = `${activeTab.offsetLeft}px`;
-            }
-        }
-    });
-    
-    const defaultTab = document.querySelector('.dropdown-item[data-tab="appeals-active"]');
-    if (defaultTab) {
-        defaultTab.click();
-    } else if (tabBtns.length > 0) {
-        tabBtns[0].click();
-    } else if (dropdownItems.length > 0) {
-        dropdownItems[0].click();
-    }
 }
 
 async function loadAppeals(tabId, page = 1) {
@@ -1060,7 +996,14 @@ function renderMultiAccountDetails(data) {
     });
     logsList.innerHTML = logsHtml;
 
-    document.getElementById('account-comment-modal').value = data.account.comment || '[Нет комментария]';
+    const commentDisplay = document.getElementById('account-comment-modal');
+    if (data.account.comment) {
+        commentDisplay.innerHTML = data.account.comment;
+        commentDisplay.classList.remove('no-comment');
+    } else {
+        commentDisplay.innerHTML = '<span class="no-comment">[Нет комментария]</span>';
+        commentDisplay.classList.add('no-comment');
+    }
 }
 
 async function initFilters() {
@@ -1159,10 +1102,9 @@ function getLogTypeName(actionType) {
         'created': 'Создание',
         'account_type_changed': 'Изменение типа аккаунта',
         'main_account_changed': 'Изменение основного аккаунта',
-        'comment_updated': 'Обновление комментария',
         'updated': 'Обновление',
         'deleted': 'Удаление',
-        'add_multi_account': 'Добавление мультиаккаунта',
+        'account_added': 'Добавление аккаунта в список мультиаккаунта',
         'banned_user': 'Блокировка пользователя',
         'unbanned_user': 'Разблокировка пользователя',
         'update_role_user': 'Изменение роли',
