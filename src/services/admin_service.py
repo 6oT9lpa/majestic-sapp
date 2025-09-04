@@ -1,16 +1,14 @@
 from fastapi import Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import joinedload
-from urllib.parse import urlparse
-from sqlalchemy import  and_, func, or_, cast, String
+from sqlalchemy import  and_, func, or_, cast, String, case
 from typing import List, Optional, Dict
 from fastapi import BackgroundTasks
 import uuid
 
 from src.services.email_service import send_restoration_email_in_background
 from src.database import get_session
-from src.models.user_model import  SupportAssignment, User, MultiAccountLog, MultiAccount, UserHistory, UserRequest, UserBan, UserRequestType
+from src.models.user_model import  SupportAssignment, User, UserHistory, UserRequest, UserBan, UserRequestType
 from src.models.appeal_model import (
     Appeal,
     AppealStatus,
@@ -21,7 +19,6 @@ from src.models.appeal_model import (
     AppealAssignment
 )
 from src.models.role_model import Role, PermissionLevel
-
 
 class AdminService:
     def __init__(self, session: AsyncSession):
@@ -36,12 +33,12 @@ class AdminService:
         page: int = 1,
         per_page: int = 20,
         search: Optional[str] = None,
-        allowed_types: Optional[List[str]] = None 
+        allowed_types: Optional[List[str]] = None,
+        sort_by: Optional[str] = "created_desc"
     ) -> dict:
         """Получить список обращений с фильтрацией"""
         offset = (page - 1) * per_page
         
-        # Основной запрос для получения данных
         query = select(Appeal).where(Appeal.status.in_(status))
         
         if allowed_types:
@@ -93,21 +90,35 @@ class AdminService:
                 )
             )
         
-        # Запрос для подсчета общего количества
+        # Применяем сортировку только для закрытых обращений
+        closed_statuses = [AppealStatus.RESOLVED, AppealStatus.REJECTED, AppealStatus.FORCE_CLOSED]
+        is_closed_tab = any(s in closed_statuses for s in status)
+        
+        if is_closed_tab:
+            if sort_by == "closed_desc":
+                query = query.order_by(Appeal.closed_at.desc().nulls_last())
+            elif sort_by == "closed_asc":
+                query = query.order_by(Appeal.closed_at.asc().nulls_first())
+            elif sort_by == "created_desc":
+                query = query.order_by(Appeal.created_at.desc())
+            elif sort_by == "created_asc":
+                query = query.order_by(Appeal.created_at.asc())
+            else:
+                query = query.order_by(Appeal.closed_at.desc().nulls_last())
+            
+        else:
+            query = query.order_by(Appeal.created_at.desc())
+        
         count_query = select(func.count()).select_from(query)
         total_result = await self.session.execute(count_query)
         total = total_result.scalar()
         
-        # Получаем данные для текущей страницы
         result = await self.session.execute(
-            query.order_by(Appeal.created_at.desc())
-            .offset(offset)
-            .limit(per_page)
+            query.offset(offset).limit(per_page)
         )
         
         appeals = result.unique().scalars().all()
         
-        # Остальной код метода остается без изменений
         appeals_data = []
         for appeal in appeals:
             appeal_data = {
@@ -115,13 +126,13 @@ class AdminService:
                 "type": appeal.type.value,
                 "status": appeal.status.value,
                 "created_at": appeal.created_at.isoformat(),
+                "closed_at": appeal.closed_at.isoformat() if appeal.closed_at else None,
                 "user_id": str(appeal.user_id) if appeal.user_id else None,
                 "user_name": None,
                 "description": None,
                 "assigned_to": None
             }
             
-            # Получаем имя пользователя
             if appeal.user_id:
                 user_result = await self.session.execute(
                     select(User).where(User.id == appeal.user_id)
@@ -130,7 +141,6 @@ class AdminService:
                 if user:
                     appeal_data["user_name"] = user.username
             
-            # Получаем специфичные данные для типа обращения
             if appeal.type == AppealType.HELP:
                 help_result = await self.session.execute(
                     select(HelpAppeal).where(HelpAppeal.appeal_id == appeal.id))
@@ -150,9 +160,8 @@ class AdminService:
                     select(AmnestyAppeal).where(AmnestyAppeal.appeal_id == appeal.id))
                 amnesty_appeal = amnesty_result.scalar()
                 if amnesty_appeal:
-                    appeal_data["description"] = "Запрос амнистии"
+                    appeal_data["description"] = amnesty_appeal.description
             
-            # Получаем информацию о назначении
             assignment_result = await self.session.execute(
                 select(AppealAssignment)
                 .where(
@@ -164,7 +173,6 @@ class AdminService:
             )
             assignment = assignment_result.unique().scalar()
             if assignment:
-                # Получаем имя назначенного модератора
                 moderator_result = await self.session.execute(
                     select(User).where(User.id == assignment.user_id)
                 )
@@ -234,297 +242,67 @@ class AdminService:
             ]
         }
 
-    async def get_multi_accounts(
-        self,
-        page: int = 1,
-        per_page: int = 20
-    ) -> dict:
-        """Получить список мультиаккаунтов"""
-        offset = (page - 1) * per_page
+    async def get_appeals_counters(self, current_user: Dict) -> dict:
+        """Получить счетчики обращений с учетом прав доступа пользователя"""
         
-        query = select(MultiAccount)
+        # Получаем разрешенные типы обращений для пользователя
+        from src.security_middleware import AppealPermissionChecker
+        allowed_types = AppealPermissionChecker.get_allowed_appeal_types(current_user)
         
-        count_query = select(func.count()).select_from(query)
-        total_result = await self.session.execute(count_query)
-        total = total_result.scalar()
+        if not allowed_types:
+            return {
+                "pending": 0,
+                "user_assigned": 0
+            }
         
+        # Счетчик необработанных обращений (только разрешенных типов)
+        pending_query = select(func.count()).select_from(Appeal).where(
+            and_(
+                Appeal.status == "pending",
+                Appeal.type.in_([AppealType(t) for t in allowed_types])
+            )
+        )
+        
+        pending_result = await self.session.execute(pending_query)
+        pending = pending_result.scalar() or 0
+        
+        # Счетчик обращений, назначенных текущему пользователю
+        user_assigned_query = select(func.count()).select_from(AppealAssignment).join(Appeal, AppealAssignment.appeal_id == Appeal.id).where(
+            and_(
+                AppealAssignment.user_id == current_user["id"],
+                AppealAssignment.released_at == None,
+                Appeal.status.in_(["pending", "in_progress"]),
+                Appeal.type.in_([AppealType(t) for t in allowed_types])
+            )
+        )
+        
+        user_assigned_result = await self.session.execute(user_assigned_query)
+        user_assigned = user_assigned_result.scalar() or 0
+        
+        return {
+            "pending": pending,
+            "user_assigned": user_assigned
+        }
+
+    async def get_moderators_list(self) -> List[dict]:
+        """Получить список всех модераторов"""
         result = await self.session.execute(
-            query.order_by(MultiAccount.created_at.desc())
-            .offset(offset)
-            .limit(per_page)
+            select(User)
+            .join(Role, User.role_id == Role.id)
+            .where(Role.level >= PermissionLevel.JUNIOR_MODERATOR)
+            .order_by(Role.level.desc(), User.username)
         )
         
-        accounts = result.scalars().all()
+        moderators = result.unique().scalars().all()
         
-        accounts_data = []
-        for account in accounts:
-            accounts_data.append({
-                "id": str(account.id),
-                "main_account": {
-                    "url": account.main_account_url,
-                    "id": account.main_account_id,
-                    "name": account.main_account_name
-                },
-                "accounts_count": len(account.accounts_data) + 1,
-                "comment_preview": account.comment[:100] + "..." if account.comment and len(account.comment) > 100 else account.comment,
-                "created_at": account.created_at.isoformat(),
-                "created_by": str(account.created_by)
-            })
-        
-        return {
-            "accounts": accounts_data,
-            "total": total,
-            "page": page,
-            "per_page": per_page,
-            "total_pages": (total + per_page - 1) // per_page
-        }
-        
-    async def add_multi_accounts(
-        self,
-        main_account_url: str,
-        accounts: List[Dict],
-        comment: Optional[str],
-        current_user: Dict
-    ) -> MultiAccount:
-        """Добавить запись о мультиаккаунтах"""
-        
-        path = urlparse(main_account_url).path
-        last_part = path.strip("/").split("/")[-1]
-        name_, id_ = last_part.split(".")
-        
-        new_account = MultiAccount(
-            main_account_url=main_account_url,
-            main_account_id=int(id_),
-            main_account_name=name_,
-            accounts_data=accounts,
-            comment=comment,
-            created_by=current_user["id"]
-        )
-        
-        self.session.add(new_account)
-        await self.session.commit()
-        await self.session.refresh(new_account)
-        
-        log = MultiAccountLog(
-            multi_account_id=new_account.id,
-            action_type="created",
-            action_details={
-                "main_account": main_account_url,
-                "accounts_count": len(accounts),
-                "comment": comment
-            },
-            changed_by=current_user["id"]
-        )
-        self.session.add(log)
-        await self.session.commit()
-        
-        return new_account
-    
-    async def get_multi_account_details(self, account_id: uuid.UUID) -> dict:
-        """Получить детальную информацию о мультиаккаунте"""
-        account = await self.session.get(MultiAccount, account_id)
-        if not account:
-            raise HTTPException(status_code=404, detail="Запись не найдена")
-        
-        # Получаем логи
-        logs_result = await self.session.execute(
-            select(MultiAccountLog)
-            .options(joinedload(MultiAccountLog.user)) 
-            .where(MultiAccountLog.multi_account_id == account_id)
-            .order_by(MultiAccountLog.changed_at.desc())
-        )
-        logs = logs_result.unique().scalars().all()
-    
-        return {
-            "account": {
-                "id": str(account.id),
-                "main_account": {
-                    "url": account.main_account_url,
-                    "id": account.main_account_id,
-                    "name": account.main_account_name
-                },
-                "accounts": account.accounts_data,
-                "comment": account.comment,
-                "created_at": account.created_at.isoformat(),
-                "created_by": str(account.created_by)
-            },
-            "logs": [{
-                "id": str(log.id),
-                "action_type": log.action_type,
-                "action_details": log.action_details,
-                "changed_by": str(log.changed_by),
-                "changed_at": log.changed_at.isoformat(),
-                "user_name": log.user.username if log.user else "Unknown"
-            } for log in logs],
-        }
+        return [{
+            "id": str(moderator.id),
+            "username": moderator.username,
+            "role_level": moderator.role.level,
+            "role_name": moderator.role.name
+        } for moderator in moderators]
 
-    async def update_account_type(
-        self,
-        multi_account_id: uuid.UUID,
-        account_id: int,
-        account_url: str,
-        new_type: str,
-        current_user: Dict
-    ):
-        """Изменить тип аккаунта"""
-        account = await self.session.get(MultiAccount, multi_account_id)
-        if not account:
-            raise HTTPException(status_code=404, detail="Запись не найдена")
-        
-        # Проверяем, что аккаунт существует в списке
-        account_found = False
-        updated_accounts = []
-        
-        for acc in account.accounts_data:
-            if acc.get('id') == account_id:
-                acc['type'] = new_type
-                account_found = True
-            updated_accounts.append(acc)
-        
-        if not account_found:
-            # Проверяем, не является ли это основным аккаунтом
-            if account.main_account_id == account_id:
-                return
-            raise HTTPException(status_code=404, detail="Аккаунт не найден в списке")
-        
-        account.accounts_data = updated_accounts
-        account.updated_at = func.now()
-        
-        self.session.add(account)
-        
-        # Добавляем запись в лог
-        log = MultiAccountLog(
-            multi_account_id=multi_account_id,
-            action_type="account_type_changed",
-            action_details={
-                "account_id": account_id,
-                "account_url": account_url,
-                "new_type": new_type
-            },
-            changed_by=current_user["id"]
-        )
-        self.session.add(log)
-        
-        await self.session.commit()
 
-    async def set_main_account(
-        self,
-        multi_account_id: uuid.UUID,
-        new_main_account_id: int,
-        new_main_account_url: str,
-        new_main_account_name: str,
-        current_user: Dict
-    ):
-        """Установить новый основной аккаунт"""
-        account = await self.session.get(MultiAccount, multi_account_id)
-        if not account:
-            raise HTTPException(status_code=404, detail="Запись не найдена")
-        
-        # Находим информацию о новом основном аккаунте
-        new_main_account = None
-        updated_accounts = []
-        account_found = False
-        
-        for acc in account.accounts_data:
-            if acc.get('id') == new_main_account_id:
-                new_main_account = acc
-                account_found = True
-            else:
-                updated_accounts.append(acc)
-        
-        if not account_found:
-            # Проверяем, не является ли это текущим основным аккаунтом
-            if account.main_account_id == new_main_account_id:
-                raise HTTPException(status_code=400, detail="Аккаунт уже является основным")
-            raise HTTPException(status_code=404, detail="Аккаунт не найден в списке")
-        
-        # Добавляем старый основной аккаунт в список
-        old_main_account = {
-            'url': account.main_account_url,
-            'name': account.main_account_name,
-            'id': account.main_account_id,
-            'type': 'multi'  # По умолчанию
-        }
-        updated_accounts.append(old_main_account)
-        
-        # Обновляем данные
-        account.main_account_url = new_main_account_url
-        account.main_account_id = new_main_account_id
-        account.main_account_name = new_main_account_name
-        account.accounts_data = updated_accounts
-        account.updated_at = func.now()
-        
-        self.session.add(account)
-        
-        # Добавляем запись в лог
-        log = MultiAccountLog(
-            multi_account_id=multi_account_id,
-            action_type="main_account_changed",
-            action_details={
-                "old_main_account": {
-                    "id": old_main_account['id'],
-                    "name": old_main_account['name']
-                },
-                "new_main_account": {
-                    "id": new_main_account_id,
-                    "name": new_main_account_name
-                }
-            },
-            changed_by=current_user["id"]
-        )
-        self.session.add(log)
-        
-        await self.session.commit()
-    
-    async def add_account_to_multi(
-        self,
-        multi_account_id: uuid.UUID,
-        account_url: str,
-        account_id: int,
-        account_name: str,
-        account_type: str,
-        current_user: Dict
-    ):
-        """Добавить аккаунт к существующей записи мультиаккаунтов"""
-        account = await self.session.get(MultiAccount, multi_account_id)
-        if not account:
-            raise HTTPException(status_code=404, detail="Запись не найдена")
-
-        if account.main_account_id == account_id:
-            raise HTTPException(status_code=400, detail="Аккаунт уже является основным")
-        
-        for existing_account in account.accounts_data:
-            if existing_account.get('id') == account_id:
-                raise HTTPException(status_code=400, detail="Аккаунт уже добавлен")
-        
-        new_account = {
-            'url': account_url,
-            'name': account_name,
-            'id': account_id,
-            'type': account_type
-        }
-        
-        updated_accounts = account.accounts_data + [new_account]
-        account.accounts_data = updated_accounts
-        account.updated_at = func.now()
-        
-        self.session.add(account)
-        
-        log = MultiAccountLog(
-            multi_account_id=multi_account_id,
-            action_type="account_added",
-            action_details={
-                "account_id": account_id,
-                "account_url": account_url,
-                "account_name": account_name,
-                "account_type": account_type
-            },
-            changed_by=current_user["id"]
-        )
-        self.session.add(log)
-        
-        await self.session.commit()
-    
     async def get_users(
         self,
         page: int = 1,
@@ -1058,66 +836,8 @@ class AdminService:
             "user": user,
             "temporary_password": temp_password
         }
-    
-    async def get_moderators_list(self) -> List[dict]:
-        """Получить список всех модераторов"""
-        result = await self.session.execute(
-            select(User)
-            .join(Role, User.role_id == Role.id)
-            .where(Role.level >= PermissionLevel.JUNIOR_MODERATOR)
-            .order_by(Role.level.desc(), User.username)
-        )
-        
-        moderators = result.unique().scalars().all()
-        
-        return [{
-            "id": str(moderator.id),
-            "username": moderator.username,
-            "role_level": moderator.role.level,
-            "role_name": moderator.role.name
-        } for moderator in moderators]
-    
-    async def get_appeals_counters(self, current_user: Dict) -> dict:
-        """Получить счетчики обращений с учетом прав доступа пользователя"""
-        
-        # Получаем разрешенные типы обращений для пользователя
-        from src.security_middleware import AppealPermissionChecker
-        allowed_types = AppealPermissionChecker.get_allowed_appeal_types(current_user)
-        
-        if not allowed_types:
-            return {
-                "pending": 0,
-                "user_assigned": 0
-            }
-        
-        # Счетчик необработанных обращений (только разрешенных типов)
-        pending_query = select(func.count()).select_from(Appeal).where(
-            and_(
-                Appeal.status == "pending",
-                Appeal.type.in_([AppealType(t) for t in allowed_types])
-            )
-        )
-        
-        pending_result = await self.session.execute(pending_query)
-        pending = pending_result.scalar() or 0
-        
-        # Счетчик обращений, назначенных текущему пользователю
-        user_assigned_query = select(func.count()).select_from(AppealAssignment).join(Appeal, AppealAssignment.appeal_id == Appeal.id).where(
-            and_(
-                AppealAssignment.user_id == current_user["id"],
-                AppealAssignment.released_at == None,
-                Appeal.status.in_(["pending", "in_progress"]),
-                Appeal.type.in_([AppealType(t) for t in allowed_types])
-            )
-        )
-        
-        user_assigned_result = await self.session.execute(user_assigned_query)
-        user_assigned = user_assigned_result.scalar() or 0
-        
-        return {
-            "pending": pending,
-            "user_assigned": user_assigned
-        }
-    
+
+
+
 async def get_admin_service(session: AsyncSession = Depends(get_session)) -> AdminService:
     return AdminService(session)

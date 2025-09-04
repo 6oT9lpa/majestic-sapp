@@ -351,7 +351,6 @@ function initTabs(tabButtonsSelector, tabContentsSelector, indicatorSelector, op
 
     window.addEventListener('resize', updateTabIndicator);
 
-    // Активация таба по умолчанию
     const savedTabId = options.saveToLocalStorage ? localStorage.getItem(options.saveToLocalStorage) : null;
     const defaultTabId = savedTabId || (options.defaultTabId ? options.defaultTabId : tabBtns[0]?.getAttribute('data-tab'));
 
@@ -360,7 +359,12 @@ function initTabs(tabButtonsSelector, tabContentsSelector, indicatorSelector, op
             (dropdownItems.length > 0 ? Array.from(dropdownItems).find(item => item.getAttribute('data-tab') === defaultTabId) : null);
 
         if (tabToActivate) {
-            tabToActivate.click();
+            const tabContent = document.getElementById(`${defaultTabId}-tab`);
+            if (tabContent) {
+                tabToActivate.click();
+            } else if (tabBtns.length > 0) {
+                tabBtns[0].click();
+            }
         } else if (tabBtns.length > 0) {
             tabBtns[0].click();
         } else if (dropdownItems.length > 0) {

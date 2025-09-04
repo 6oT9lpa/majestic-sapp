@@ -27,6 +27,7 @@ class ActionType(str, Enum):
     upload_reports = "upload_reports"                           # Загрузка отчетов +
     user_restored = "user_restored"                             # Восстановление пользователя +
     multi_account_updated = "multi_account_updated"             # Обновление мультиаккаунта +
+    add_multi_account = "add_multi_account"                     # Добавление аккаунта в мультиаккаунт +
 
 async def log_action (
     request: Request,

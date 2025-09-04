@@ -457,6 +457,7 @@ function getAppealStatusName(status) {
         case 'in_progress': return 'Обрабатывается'
         case 'resolved': return 'Завершено';
         case 'rejected': return 'Отклонено';
+        case 'force_closed': return 'Закрыто';
         default: return status;
     }
 }
@@ -466,6 +467,7 @@ function getStatusClass(status) {
         case 'in_progress': return 'status-progress';
         case 'resolved': return 'status-completed'
         case 'rejected': return 'status-rejected';
+        case 'force_closed': return 'status-rejected';
         default: return 'status-pending';
     }
 }
@@ -481,8 +483,12 @@ function getActionName(actionType) {
         'create_appeal': 'Создание обращения',
         'appeal_progress': 'Обращение в работе',
         'appeal_closed': 'Обращение закрыто',
+        'register_user': 'Регистрация пользователя',
+        'user_login': 'Вход пользователя',
         'update_role_user': 'Изменение роли',
         'account_deletion_requested': 'Запрос удаления',
+        'delete_account': 'Удаление аккаунта',
+        'add_account_deletio': 'Добавление записи об удалении аккаунта',
         'update_stats_user': 'Обновление статистики',
         'reassigning_appeal': 'Переназначение',
         'banned_user': 'Блокировка',
@@ -490,7 +496,11 @@ function getActionName(actionType) {
         'approved_request': 'Заявка одобрена',
         'rejected_request': 'Заявка отклонена',
         'password_changed': 'Смена пароля',
-        'username_change_request': 'Запрос смены ника'
+        'username_change_request': 'Запрос смены ника',
+        'upload_reports': 'Загрузка отчетов',
+        'user_restored': 'Восстановление пользователя',
+        'multi_account_updated': 'Обновление мультиаккаунта',
+        'add_multi_account': 'Добавление мультиаккаунта'
     };
     return actionNames[actionType] || actionType;
 }
@@ -500,8 +510,12 @@ function getActionIcon(actionType) {
         'create_appeal': '<i class="fas fa-plus-circle"></i>',
         'appeal_progress': '<i class="fas fa-spinner"></i>',
         'appeal_closed': '<i class="fas fa-check-circle"></i>',
+        'register_user': '<i class="fas fa-user-plus"></i>',
+        'user_login': '<i class="fas fa-sign-in-alt"></i>',
         'update_role_user': '<i class="fas fa-user-cog"></i>',
         'account_deletion_requested': '<i class="fas fa-trash-alt"></i>',
+        'delete_account': '<i class="fas fa-user-times"></i>',
+        'add_account_deletio': '<i class="fas fa-archive"></i>',
         'update_stats_user': '<i class="fas fa-chart-line"></i>',
         'reassigning_appeal': '<i class="fas fa-exchange-alt"></i>',
         'banned_user': '<i class="fas fa-ban"></i>',
@@ -509,7 +523,11 @@ function getActionIcon(actionType) {
         'approved_request': '<i class="fas fa-check"></i>',
         'rejected_request': '<i class="fas fa-times"></i>',
         'password_changed': '<i class="fas fa-key"></i>',
-        'username_change_request': '<i class="fas fa-signature"></i>'
+        'username_change_request': '<i class="fas fa-signature"></i>',
+        'upload_reports': '<i class="fas fa-file-upload"></i>',
+        'user_restored': '<i class="fas fa-user-check"></i>',
+        'multi_account_updated': '<i class="fas fa-sync-alt"></i>',
+        'add_multi_account': '<i class="fas fa-users"></i>'
     };
     return actionIcons[actionType] || '<i class="fas fa-info-circle"></i>';
 }

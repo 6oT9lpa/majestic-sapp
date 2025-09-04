@@ -540,79 +540,12 @@
     background: #c00050;
 }
 
-/* Стили для редактирования аккаунтов */
-.account-edit-item {
-    display: grid;
-    grid-template-columns: 1fr 150px 40px;
-    gap: 0.5rem;
-    align-items: center;
-    margin-bottom: 0.8rem;
-    padding: 0.8rem;
-    background: var(--second-background);
-    border-radius: 5px;
-    border: 1px solid var(--border-color);
-}
-
-.account-edit-item.main-account {
-    background: rgba(224, 1, 91, 0.05);
-    border-color: var(--accent-color);
-}
-
-.account-edit-input {
-    padding: 0.6rem;
-    background: var(--primary-background);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    color: var(--primary-text);
-    font-size: 0.9rem;
-}
-
-.account-edit-input:focus {
-    outline: none;
-    border-color: var(--accent-color);
-}
-
-.account-edit-select {
-    padding: 0.6rem;
-    background: var(--primary-background);
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    color: var(--primary-text);
-    font-size: 0.9rem;
-    cursor: pointer;
-}
-
-.set-main-btn {
-    padding: 0.4rem 0.8rem;
-    background: transparent;
-    color: var(--accent-color);
-    border: 1px solid var(--accent-color);
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    transition: all 0.2s;
-}
-
-.set-main-btn:hover {
-    background: rgba(224, 1, 91, 0.1);
-}
-
-.set-main-btn.active {
-    background: var(--accent-color);
-    color: white;
-}
-
-.char-counter {
-    text-align: right;
-    font-size: 0.8rem;
-    color: var(--second-text);
-    margin-top: 0.3rem;
-}
-
 /* Стили для модального окна деталей мультиаккаунта */
 .large-modal {
-    max-width: 1200px;
-    width: 90%;
+    max-width: 1500px;
+    width: 95%;
+    max-height: 98vh;
+    overflow-y: auto;
 }
 
 .multi-account-details {
@@ -635,14 +568,82 @@
     padding: 1rem;
     border-radius: 8px;
     border: 1px solid var(--border-color);
+    height: 100%;
 }
 
 .accounts-list-section h3,
 .comment-section h3,
 .logs-section h3 {
-    margin-bottom: 1rem;
     color: var(--primary-text);
     font-size: 1.1rem;
+    text-align: center;
+    margin-bottom: .5rem;
+}
+
+.comment-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Стили для формы редактирования комментария */
+#edit-comment-form {
+    margin-top: 1rem;
+}
+
+#comment-textarea {
+    width: 100%;
+    padding: 0.8rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--primary-text);
+    font-family: inherit;
+    resize: vertical;
+    min-height: 100px;
+}
+
+#comment-textarea:focus {
+    outline: none;
+    border-color: var(--accent-color);
+}
+
+.form-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    justify-content: flex-end;
+}
+
+/* Стили для списка файлов */
+.file-uploader {
+    font-size: 0.8rem;
+    color: var(--second-text);
+    min-width: 100px;
+}
+
+.file-item .icon-btn.danger {
+    color: var(--status-rejected-text);
+}
+
+.file-item .icon-btn.danger:hover {
+    color: var(--status-rejected-border);
+    background: var(--status-rejected-bg);
+}
+
+/* Стили для индикатора загрузки файлов */
+.file-upload-progress {
+    width: 100%;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+}
+
+.file-upload-progress-bar {
+    height: 100%;
+    background: var(--accent-color);
+    transition: width 0.3s ease;
 }
 
 .detailed-account-item {
@@ -692,7 +693,7 @@
 }
 
 .logs-list {
-    max-height: 400px;
+    max-height: calc(100vh - 13rem);
     overflow-y: auto;
 }
 
@@ -725,6 +726,10 @@
 .log-details {
     font-size: 0.9rem;
     color: var(--second-text);
+}
+
+.log-details a {
+    color: var(--primary-link);
 }
 
 .log-user {
@@ -839,53 +844,113 @@ div#accounts-container {
     cursor: default;
 }
 
-/* Стили для загруженных файлов */
-.uploaded-file {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background: var(--second-background);
-    border-radius: 5px;
-    margin-bottom: 0.5rem;
-    border: 1px solid var(--border-color);
-}
-
-.uploaded-file-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.uploaded-file-name {
-    font-size: 0.9rem;
-    color: var(--primary-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.uploaded-file-size {
-    font-size: 0.8rem;
-    color: var(--second-text);
-}
-
-.remove-file {
-    color: var(--status-rejected-text);
-    cursor: pointer;
-    background: none;
-    border: none;
-    padding: 0.3rem;
-}
-
-.remove-file:hover {
-    color: var(--status-rejected-border);
-}
-
 .section-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+}
+
+.files-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.files-section.hidden {
+    display: none;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.8rem;
+    background: var(--primary-background);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    transition: all 0.2s;
+}
+
+.file-item:hover {
+    border-color: var(--accent-color);
+    background: var(--second-background);
+}
+
+.file-link {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--primary-text);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.file-link:hover {
+    color: var(--accent-color);
+}
+
+.file-link i {
+    color: var(--accent-color);
+    width: 16px;
+}
+
+.file-size {
+    font-size: 0.8rem;
+    color: var(--second-text);
+    min-width: 60px;
+    text-align: right;
+}
+
+.file-date {
+    font-size: 0.8rem;
+    color: var(--second-text);
+    min-width: 80px;
+    text-align: right;
+}
+
+div#detailed-accounts-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.no-files, .no-comment {
+    text-align: center;
+    padding: 2rem;
+    color: var(--second-text);
+    font-style: italic;
+}
+
+.icon-btn {
+    background: transparent;
+    border: none;
+    color: var(--second-text);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+}
+
+.icon-btn:hover {
+    background: var(--second-background);
+    color: var(--accent-color);
+}
+
+.large-modal .modal-header {
+    display: flex;
+    text-align: center;
+    gap: .5rem;
+    position: sticky;
+    top: -2rem;
+    background: var(--primary-background);
+    padding: 1rem;
 }
 
 /* Адаптивность */
@@ -922,6 +987,18 @@ div#accounts-container {
     .remove-account-btn {
         width: 100%;
         margin-top: 0.5rem;
+    }
+
+    .file-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .file-size,
+    .file-date {
+        align-self: flex-end;
+        text-align: left;
     }
 }
 

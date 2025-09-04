@@ -11,6 +11,7 @@ class AppealStatus(str, PyEnum):
     IN_PROGRESS = "in_progress"
     RESOLVED = "resolved"
     REJECTED = "rejected"
+    FORCE_CLOSED = "force_closed"
 
 class AppealType(str, PyEnum):
     HELP = "help"
@@ -37,6 +38,11 @@ class Appeal(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now()
+    )
+    
+    closed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True
     )
     
     user = relationship("User", back_populates="appeals", lazy="joined")

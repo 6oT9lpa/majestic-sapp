@@ -317,4 +317,36 @@ class MultiAccountLog(Base):
     
     user = relationship("User", foreign_keys=[changed_by])
     multi_account = relationship("MultiAccount")
+
+class MultiAccountFile(Base):
+    __tablename__ = "multi_account_files"
     
+    multi_account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("multi_accounts.id"),
+        nullable=False
+    )
+    filename: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
+    file_size: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False
+    )
+    file_path: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False
+    )
+    uploaded_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("user.id"),
+        nullable=False
+    )
+    uploaded_at: Mapped[datetime] = mapped_column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now()
+    )
+    
+    uploaded_by_user = relationship("User")
+    multi_account = relationship("MultiAccount")

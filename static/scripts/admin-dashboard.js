@@ -1,4 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    const savedTabId = await initFilters();
+    
     initTabs('.tab-btn, .dropdown-item', '.tab-content', '.tab-indicator', {
         onTabChange: (tabId) => {
             if (tabId === 'appeals-active' || tabId === 'appeals-closed') {
@@ -10,9 +12,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         dropdownBtn: "#appeals-dropdown",
         dropdownItems: "#appeals-dropdown ~ .dropdown-content .dropdown-item",
         saveToLocalStorage: 'adminActiveTab',
+        defaultTabId: savedTabId 
     });
 
-    await initFilters();
+    // Обработчики поиска для активных обращений
+    const activeSearchInput = document.getElementById('search-input-active');
+    const activeSearchBtn = document.querySelector('#appeals-active-tab .search-btn');
+    
+    if (activeSearchInput && activeSearchBtn) {
+        activeSearchInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                loadAppeals('appeals-active');
+            }
+        });
+        
+        activeSearchBtn.addEventListener('click', function() {
+            loadAppeals('appeals-active');
+        });
+    }
+
+    // Обработчики поиска для закрытых обращений
+    const closedSearchInput = document.getElementById('search-input-closed');
+    const closedSearchBtn = document.querySelector('#appeals-closed-tab .search-btn');
+    
+    if (closedSearchInput && closedSearchBtn) {
+        closedSearchInput.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                loadAppeals('appeals-closed');
+            }
+        });
+        
+        closedSearchBtn.addEventListener('click', function() {
+            loadAppeals('appeals-closed');
+        });
+    }
 
     document.querySelectorAll('#search-input').forEach(input => {
         input.addEventListener('keyup', function(e) {
@@ -214,9 +247,162 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    document.getElementById('view-files-btn')?.addEventListener('click', async () => {
+        const filesSection = document.getElementById('files-section');
+        const multiAccountId = document.getElementById('edit-account-id').value;
+        
+        if (filesSection.classList.contains('hidden')) {
+            filesSection.classList.remove('hidden');
+    
+            if (multiAccountId) {
+                await loadMultiAccountFiles(multiAccountId);
+            }
+
+        } else {
+            filesSection.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('edit-comment-btn')?.addEventListener('click', () => {
+        const commentDisplay = document.getElementById('account-comment-modal');
+        const editForm = document.getElementById('edit-comment-form');
+        const textarea = document.getElementById('comment-textarea');
+        
+        const currentComment = commentDisplay.textContent.trim();
+        textarea.value = currentComment === '[Нет комментария]' ? '' : currentComment;
+        
+        commentDisplay.classList.add('hidden');
+        editForm.classList.remove('hidden');
+    });
+
+    document.getElementById('cancel-edit-comment')?.addEventListener('click', () => {
+        const commentDisplay = document.getElementById('account-comment-modal');
+        const editForm = document.getElementById('edit-comment-form');
+        
+        editForm.classList.add('hidden');
+        commentDisplay.classList.remove('hidden');
+    });
+
+    document.getElementById('save-comment')?.addEventListener('click', async () => {
+        const textarea = document.getElementById('comment-textarea');
+        const comment = textarea.value.trim();
+        const multiAccountId = document.getElementById('edit-account-id').value;
+        
+        try {
+            const formData = new URLSearchParams();
+            formData.append('comment', comment);
+            
+            const response = await fetch(`/dashboard/admin/multi-accounts/${multiAccountId}/comment`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Ошибка обновления комментария');
+            }
+            
+            // Обновляем отображение комментария
+            const commentDisplay = document.getElementById('account-comment-modal');
+            const editForm = document.getElementById('edit-comment-form');
+            
+            if (comment) {
+                commentDisplay.textContent = comment;
+                commentDisplay.classList.remove('no-comment');
+            } else {
+                commentDisplay.innerHTML = '<span class="no-comment">[Нет комментария]</span>';
+                commentDisplay.classList.add('no-comment');
+            }
+            
+            editForm.classList.add('hidden');
+            commentDisplay.classList.remove('hidden');
+            
+            showNotification('Комментарий успешно обновлен', 'success');
+            
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    });
+
+    document.getElementById('attach-file-btn')?.addEventListener('click', () => {
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = 'image/*';
+        fileInput.multiple = false;
+        
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Проверка размера файла
+            if (file.size > 30 * 1024 * 1024) {
+                showNotification('Размер файла не должен превышать 30 МБ', 'error');
+                return;
+            }
+            
+            // Проверка типа файла
+            if (!file.type.startsWith('image/')) {
+                showNotification('Можно загружать только изображения', 'error');
+                return;
+            }
+            
+            const multiAccountId = document.getElementById('edit-account-id').value;
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch(`/dashboard/admin/multi-accounts/${multiAccountId}/upload-file`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Ошибка загрузки файла');
+                }
+                
+                showNotification('Файл успешно загружен', 'success');
+                
+                await loadMultiAccountFiles(multiAccountId);
+                
+            } catch (error) {
+                showNotification(error.message, 'error');
+            }
+        };
+        
+        fileInput.click();
+    });
+
+    const cancelConfirmHandler = () => {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        cleanupModalHandlers('confirmModal');
+        resolve(false);
+    };
+
+    const cancelReassignHandler = () => {
+        modal.style.display = 'none';
+        modal.classList.add('hidden');
+        cleanupModalHandlers('reassignModal');
+        resolve(false);
+    };
+
     initAppealsListWebSocket();
     fetchAppealsCounters().then(updateCounters);
 });
+
+function cleanupModalHandlers(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+
+    const clone = modal.cloneNode(true);
+    modal.parentNode.replaceChild(clone, modal);
+}
 
 function removeUploadedFile(element) {
     element.closest('.uploaded-file').remove();
@@ -366,13 +552,14 @@ async function forceCloseAppeal(appealId) {
                 return;
             }
             
-            try {
-                const formData = new URLSearchParams();
-                formData.append('reason', reason);
-                
-                const response = await fetch(`/dashboard/admin/appeals/${appealId}/force-close?${formData.toString()}`, {
+            try {                
+                const response = await fetch(`/dashboard/admin/appeals/${appealId}/force-close`, {
                     method: 'POST',
-                    credentials: 'include'
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ reason: reason })
                 });
                 
                 if (!response.ok) throw new Error('Ошибка закрытия');
@@ -519,27 +706,32 @@ async function loadAppeals(tabId, page = 1) {
     }
 
     try {
-        let statuses = tabId.includes('active') ? ['pending', 'in_progress'] : ['resolved', 'rejected'];
-        
-        if (currentFilters.status !== 'all' && tabId.includes('active')) {
-            statuses = [currentFilters.status];
-        }
+        let statuses = tabId.includes('active') ? ['pending', 'in_progress'] : ['resolved', 'rejected', 'force_closed'];
         
         const params = new URLSearchParams();
         statuses.forEach(s => params.append('status', s));
         
-        if (currentFilters.type !== 'all') {
-            params.append('type', currentFilters.type);
+        if (tabId.includes('active')) {
+            if (currentFilters.type !== 'all') {
+                params.append('type', currentFilters.type);
+            }
+            
+            if (currentFilters.assignedToMe) {
+                params.append('assigned_to_me', 'true');
+            }
         }
         
-        if (currentFilters.assignedToMe) {
-            params.append('assigned_to_me', 'true');
-        }
-        
-        // Добавляем поисковый запрос
-        const searchInput = tabContent.querySelector('#search-input');
+        const searchInputId = tabId.includes('active') ? 'search-input-active' : 'search-input-closed';
+        const searchInput = document.getElementById(searchInputId);
         if (searchInput && searchInput.value.trim()) {
             params.append('search', searchInput.value.trim());
+        }
+        
+        if (tabId.includes('closed')) {
+            const sortFilter = document.getElementById('sort-filter');
+            if (sortFilter && sortFilter.value) {
+                params.append('sort_by', sortFilter.value);
+            }
         }
         
         params.append('page', page);
@@ -581,20 +773,23 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
 
     let html = '';
 
-    // Сортируем обращения: сначала назначенные текущему пользователю, потом остальные
-    appeals.sort((a, b) => {
-        const aIsAssigned = a.assigned_to === currentUser.username;
-        const bIsAssigned = b.assigned_to === currentUser.username;
-        
-        if (aIsAssigned && !bIsAssigned) return -1;
-        if (!aIsAssigned && bIsAssigned) return 1;
-        return new Date(b.created_at) - new Date(a.created_at);
-    });
-
+    // Для активных обращений сортируем: сначала назначенные текущему пользователю
+    if (tabId === 'appeals-active') {
+        appeals.sort((a, b) => {
+            const aIsAssigned = a.assigned_to === currentUser.username;
+            const bIsAssigned = b.assigned_to === currentUser.username;
+            
+            if (aIsAssigned && !bIsAssigned) return -1;
+            if (!aIsAssigned && bIsAssigned) return 1;
+            return new Date(b.created_at) - new Date(a.created_at);
+        });
+    }
+    
     appeals.forEach(appeal => {
         const date = new Date(appeal.created_at).toLocaleString();
+        const closedDate = appeal.closed_at ? new Date(appeal.closed_at).toLocaleString() : null;
         const canForceClose = currentUser.role.level >= 6;
-        const isCompleted = ['resolved', 'rejected'].includes(appeal.status);
+        const isCompleted = ['resolved', 'rejected', 'force_closed'].includes(appeal.status);
         const isActiveTab = tabId === 'appeals-active';
         const isAssignedToMe = appeal.assigned_to === currentUser.username;
         
@@ -615,7 +810,7 @@ function renderAppeals(container, appeals, tabId, total_pages = 1, currentPage =
                     ${appeal.description}
                 </div>
                 <div class="appeal-footer">
-                    <span class="appeal-date">${date}</span>
+                    <span class="appeal-date">${isActiveTab ? `Создано: ${date}` : `Закрыто: ${closedDate}`}</span>
                     <div class="appeal-actions">
                         ${canForceClose && isActiveTab && !isCompleted ? `
                         <button class="action-btn danger-action force-close-btn" data-id="${appeal.id}">
@@ -764,9 +959,14 @@ async function loadMultiAccountFiles(multiAccountId) {
         if (response.ok) {
             const files = await response.json();
             renderFilesList(files);
+        } else {
+            document.getElementById('files-list').innerHTML = 
+                '<div class="no-files">Ошибка загрузки файлов</div>';
         }
     } catch (error) {
         console.error('Ошибка загрузки файлов:', error);
+        document.getElementById('files-list').innerHTML = 
+            '<div class="no-files">Ошибка загрузки файлов</div>';
     }
 }
 
@@ -784,15 +984,47 @@ function renderFilesList(files) {
             <div class="file-item">
                 <a href="/dashboard/admin/multi-accounts/${currentMultiAccountData.account.id}/files/${file.id}/download" 
                     target="_blank" class="file-link">
-                    <i class="fas fa-file"></i> ${file.filename}
+                    <i class="fas fa-file-image"></i>
+                    <span class="file-name">${file.filename}</span>
                 </a>
                 <span class="file-size">${formatFileSize(file.file_size)}</span>
                 <span class="file-date">${new Date(file.uploaded_at).toLocaleDateString()}</span>
+                <span class="file-uploader">${file.uploaded_by_name}</span>
+                <button class="icon-btn danger" onclick="deleteFile('${file.id}')" title="Удалить файл">
+                    <i class="fas fa-trash"></i>
+                </button>
             </div>
         `;
     });
     
     filesList.innerHTML = html;
+}
+
+async function deleteFile(fileId) {
+    if (!confirm('Вы уверены, что хотите удалить этот файл?')) {
+        return;
+    }
+    
+    const multiAccountId = document.getElementById('edit-account-id').value;
+    
+    try {
+        const response = await fetch(`/dashboard/admin/multi-accounts/${multiAccountId}/files/${fileId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Ошибка удаления файла');
+        }
+        
+        showNotification('Файл успешно удален', 'success');
+        
+        await loadMultiAccountFiles(multiAccountId);
+        
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
 }
 
 async function showMultiAccountDetails(accountId) {
@@ -1007,42 +1239,88 @@ function renderMultiAccountDetails(data) {
 }
 
 async function initFilters() {
-    await loadFiltersFromStorage();
-    const filterBtn = document.querySelector('.filter-btn');
-    const dropdown = filterBtn?.closest('.dropdown');
-    const applyBtn = document.querySelector('.apply-filters-btn');
+    const savedFilters = localStorage.getItem('appealsFilters');
+    if (savedFilters) {
+        currentFilters = JSON.parse(savedFilters);
+        
+        const typeFilter = document.getElementById('type-filter');
+        const statusFilter = document.getElementById('status-filter');
+        const assignedToMe = document.getElementById('assigned-to-me');
+        
+        if (typeFilter) typeFilter.value = currentFilters.type || 'all';
+        if (statusFilter) statusFilter.value = currentFilters.status || 'all';
+        if (assignedToMe) assignedToMe.checked = currentFilters.assignedToMe || false;
+        
+        const sortFilter = document.getElementById('sort-filter');
+        if (sortFilter && currentFilters.sortBy) {
+            sortFilter.value = currentFilters.sortBy;
+        }
+    }
+
+    // Обработчики для активных обращений
+    const activeFilterBtn = document.querySelector('#appeals-active-tab .filter-btn');
+    const activeDropdown = activeFilterBtn?.closest('.dropdown');
+    const activeApplyBtn = document.querySelector('#appeals-active-tab .apply-filters-btn');
     
-    if (filterBtn && dropdown) {
-        filterBtn.addEventListener('click', (e) => {
+    if (activeFilterBtn && activeDropdown) {
+        activeFilterBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            dropdown.classList.toggle('active');
+            activeDropdown.classList.toggle('active');
         });
     }
     
-    if (applyBtn) {
-        applyBtn.addEventListener('click', () => {
-            const activeTab = document.querySelector('.tab-content.active');
-            if (activeTab && activeTab.id.includes('appeals')) {
-                dropdown?.classList.remove('active');
-                const tabId = activeTab.id.replace('-tab', '');
-                currentFilters = {
-                    type: document.getElementById('type-filter').value,
-                    status: document.getElementById('status-filter').value,
-                    assignedToMe: document.getElementById('assigned-to-me').checked,
-                    tabId: tabId
-                };
-                saveFiltersToStorage();
-                loadAppeals(tabId);
-            }
+    if (activeApplyBtn) {
+        activeApplyBtn.addEventListener('click', () => {
+            activeDropdown?.classList.remove('active');
+            
+            currentFilters = {
+                type: document.getElementById('type-filter').value,
+                status: document.getElementById('status-filter').value,
+                assignedToMe: document.getElementById('assigned-to-me').checked,
+                tabId: 'appeals-active'
+            };
+            
+            saveFiltersToStorage();
+            loadAppeals('appeals-active');
+        });
+    }
+
+    // Обработчики для закрытых обращений
+    const closedFilterBtn = document.querySelector('#appeals-closed-tab .filter-btn');
+    const closedDropdown = closedFilterBtn?.closest('.dropdown');
+    const closedApplyBtn = document.querySelector('#appeals-closed-tab .apply-filters-btn');
+    
+    if (closedFilterBtn && closedDropdown) {
+        closedFilterBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closedDropdown.classList.toggle('active');
         });
     }
     
-    // Закрытие dropdown при клике вне его
+    if (closedApplyBtn) {
+        closedApplyBtn.addEventListener('click', () => {
+            closedDropdown?.classList.remove('active');
+            
+            currentFilters = {
+                type: 'all', 
+                status: 'all', 
+                assignedToMe: false, 
+                sortBy: document.getElementById('sort-filter').value,
+                tabId: 'appeals-closed'
+            };
+            
+            saveFiltersToStorage();
+            loadAppeals('appeals-closed');
+        });
+    }
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.dropdown')) {
             document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('active'));
         }
     });
+    
+    return currentFilters?.tabId;
 }
 
 function renderPagination(currentPage, totalPages) {
@@ -1083,7 +1361,8 @@ function getStatusName(status) {
         'pending': 'Ожидает',
         'in_progress': 'В работе',
         'resolved': 'Решено',
-        'rejected': 'Отклонено'
+        'rejected': 'Отклонено',
+        'force_closed': 'Закрыто'
     };
     return statuses[status] || status;
 }
@@ -1093,6 +1372,7 @@ function getStatusClass(status) {
         case 'in_progress': return 'status-progress';
         case 'resolved': return 'status-completed'
         case 'rejected': return 'status-rejected';
+        case 'force_closed': return 'status-rejected';
         default: return 'status-pending';
     }
 }
@@ -1100,11 +1380,15 @@ function getStatusClass(status) {
 function getLogTypeName(actionType) {
     const types = {
         'created': 'Создание',
-        'account_type_changed': 'Изменение типа аккаунта',
-        'main_account_changed': 'Изменение основного аккаунта',
         'updated': 'Обновление',
         'deleted': 'Удаление',
-        'account_added': 'Добавление аккаунта в список мультиаккаунта',
+        'comment_updated': 'Изменение комментария',
+        'account_type_changed': 'Изменение типа аккаунта',
+        'main_account_changed': 'Изменение основного аккаунта',
+        'account_added': 'Добавление аккаунта',
+        'file_uploaded': 'Загрузка файла',
+        'file_deleted': 'Удаление файла',
+        'multi_account_updated': 'Обновление мультиаккаунта',
         'banned_user': 'Блокировка пользователя',
         'unbanned_user': 'Разблокировка пользователя',
         'update_role_user': 'Изменение роли',
@@ -1133,9 +1417,25 @@ function formatLogDetails(details) {
     
     return String(details);
 }
-
 function formatObjectDetails(obj) {
     let result = '';
+    
+    // Обработка разных типов событий
+    if (obj.message) {
+        return obj.message;
+    }
+    
+    if (obj.comment !== undefined) {
+        result += `<strong>Комментарий:</strong> ${obj.comment || '[удален]'}<br>`;
+    }
+    
+    if (obj.filename) {
+        result += `<strong>Имя файла:</strong> ${obj.filename}<br>`;
+    }
+    
+    if (obj.file_id) {
+        result += `<strong>ID файла:</strong> ${obj.file_id}<br>`;
+    }
     
     if (obj.account_id) {
         result += `<strong>ID аккаунта:</strong> ${obj.account_id}<br>`;
@@ -1146,57 +1446,43 @@ function formatObjectDetails(obj) {
     }
     
     if (obj.new_type) {
-        result += `<strong>Новый тип:</strong> ${obj.new_type === 'multi' ? 'Мультиаккаунт' : 'Обход блокировки'}<br>`;
+        const typeName = obj.new_type === 'multi' ? 'Мультиаккаунт' : 'Обход блокировки';
+        result += `<strong>Новый тип:</strong> ${typeName}<br>`;
+    }
+    
+    if (obj.new_main_account_id) {
+        result += `<strong>Новый основной ID:</strong> ${obj.new_main_account_id}<br>`;
     }
     
     if (obj.action === 'main_account_changed') {
         result += `<strong>Действие:</strong> Изменение основного аккаунта<br>`;
-        if (obj.new_main_account_id) {
-            result += `<strong>Новый основной ID:</strong> ${obj.new_main_account_id}<br>`;
-        }
-        if (obj.new_main_account_name) {
-            result += `<strong>Новое имя:</strong> ${obj.new_main_account_name}<br>`;
-        }
     }
     
-    if (obj.old_main_account) {
-        result += `<strong>Старый основной:</strong> ${obj.old_main_account.name} (ID: ${obj.old_main_account.id})<br>`;
+    if (obj.action === 'file_uploaded') {
+        result += `<strong>Действие:</strong> Загрузка файла<br>`;
+        if (obj.filename) result += `<strong>Имя файла:</strong> ${obj.filename}<br>`;
+        if (obj.file_size) result += `<strong>Размер файла:</strong> ${formatFileSize(obj.file_size)}<br>`;
     }
     
-    if (obj.new_main_account) {
-        result += `<strong>Новый основной:</strong> ${obj.new_main_account.name} (ID: ${obj.new_main_account.id})<br>`;
+    if (obj.action === 'file_deleted') {
+        result += `<strong>Действие:</strong> Удаление файла<br>`;
+        if (obj.filename) result += `<strong>Имя файла:</strong> ${obj.filename}<br>`;
     }
 
-    if (obj.main_account) {
-        result += `<strong>Основной аккаунт:</strong> ${obj.main_account}<br>`;
+    if (obj.action) {
+        const actionNames = {
+            'file_uploaded': 'Загрузка файла',
+            'file_deleted': 'Удаление файла',
+            'comment_updated': 'Изменение комментария',
+            'account_type_changed': 'Изменение типа аккаунта',
+            'main_account_changed': 'Изменение основного аккаунта',
+            'account_added': 'Добавление аккаунта'
+        };
+        
+        result += `<strong>Действие:</strong> ${actionNames[obj.action] || obj.action}<br>`;
     }
-    
-    if (obj.accounts_count !== undefined) {
-        result += `<strong>Количество аккаунтов:</strong> ${obj.accounts_count}<br>`;
-    }
-    
-    if (obj.comment) {
-        const commentPreview = obj.comment.length > 100 ? 
-            obj.comment.substring(0, 100) + '...' : obj.comment;
-        result += `<strong>Комментарий:</strong> ${commentPreview}<br>`;
-    }
-    
-    if (obj.added_accounts) {
-        result += `<strong>Добавленные аккаунты:</strong> ${obj.added_accounts.join(', ')}<br>`;
-    }
-    
-    if (obj.removed_accounts) {
-        result += `<strong>Удаленные аккаунты:</strong> ${obj.removed_accounts.join(', ')}<br>`;
-    }
-    
-    if (obj.changed_accounts) {
-        result += `<strong>Измененные аккаунты:</strong><br>`;
-        obj.changed_accounts.forEach(change => {
-            result += `- ${change.account}: ${change.changes.join(', ')}<br>`;
-        });
-    }
-    
-    return result || JSON.stringify(obj, null, 2);
+
+    return result || 'Нет дополнительной информации';
 }
 
 function formatFileSize(bytes) {

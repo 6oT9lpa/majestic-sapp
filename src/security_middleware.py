@@ -100,7 +100,7 @@ class AppealPermissionChecker(BasePermissionChecker):
         """Возвращает список статусов, которые пользователь может видеть"""
         allowed_statuses = []
         
-        allowed_statuses.extend(["resolved", "rejected"])
+        allowed_statuses.extend(["resolved", "rejected", "force_closed"])
         
         if appeal_type == "help" and SecurityUtils.has_permission_by_name(user, "respond_support_tickets"):
             allowed_statuses.extend(["pending", "in_progress"])

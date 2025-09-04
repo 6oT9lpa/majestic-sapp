@@ -14,6 +14,7 @@ class ActivityStatus(str, Enum):
     RESOLVED = "resolved"
     REJECTED = "rejected"
     IN_PROGRESS = "in_progress"
+    FORCE_CLOSED = "force_closed"
 
 class RecentActivity(BaseModel):
     id: str
